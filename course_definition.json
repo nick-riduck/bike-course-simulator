@@ -1,0 +1,926 @@
+[
+  {
+    "id": 0,
+    "type": "FLAT",
+    "start_km": 0.0025455238120785555,
+    "end_km": 6.585238188582565,
+    "name": "Segment 0"
+  },
+  {
+    "id": 1,
+    "type": "UP",
+    "start_km": 6.585238188582565,
+    "end_km": 7.586127290200605,
+    "name": "Segment 5"
+  },
+  {
+    "id": 2,
+    "type": "FLAT",
+    "start_km": 7.586127290200605,
+    "end_km": 8.775497810888051,
+    "name": "Segment 6"
+  },
+  {
+    "id": 3,
+    "type": "UP",
+    "start_km": 8.775497810888051,
+    "end_km": 9.911179032109548,
+    "name": "Segment 7"
+  },
+  {
+    "id": 4,
+    "type": "FLAT",
+    "start_km": 9.911179032109548,
+    "end_km": 10.91618298635335,
+    "name": "Segment 8"
+  },
+  {
+    "id": 5,
+    "type": "UP",
+    "start_km": 10.91618298635335,
+    "end_km": 11.99832787389618,
+    "name": "Segment 9"
+  },
+  {
+    "id": 6,
+    "type": "FLAT",
+    "start_km": 11.99832787389618,
+    "end_km": 13.000167615376116,
+    "name": "Segment 10"
+  },
+  {
+    "id": 7,
+    "type": "UP",
+    "start_km": 13.000167615376116,
+    "end_km": 14.01170316826088,
+    "name": "Segment 11"
+  },
+  {
+    "id": 8,
+    "type": "FLAT",
+    "start_km": 14.01170316826088,
+    "end_km": 16.165700037446395,
+    "name": "Segment 12"
+  },
+  {
+    "id": 9,
+    "type": "UP",
+    "start_km": 16.165700037446395,
+    "end_km": 17.172610256922773,
+    "name": "Segment 13"
+  },
+  {
+    "id": 10,
+    "type": "FLAT",
+    "start_km": 17.172610256922773,
+    "end_km": 18.174631445011993,
+    "name": "Segment 14"
+  },
+  {
+    "id": 11,
+    "type": "UP",
+    "start_km": 18.174631445011993,
+    "end_km": 19.17773752092685,
+    "name": "Segment 15"
+  },
+  {
+    "id": 12,
+    "type": "FLAT",
+    "start_km": 19.17773752092685,
+    "end_km": 20.321132381406944,
+    "name": "Segment 16"
+  },
+  {
+    "id": 13,
+    "type": "UP",
+    "start_km": 20.321132381406944,
+    "end_km": 21.32899601212726,
+    "name": "Segment 17"
+  },
+  {
+    "id": 14,
+    "type": "FLAT",
+    "start_km": 21.32899601212726,
+    "end_km": 22.481816128840908,
+    "name": "Segment 18"
+  },
+  {
+    "id": 15,
+    "type": "UP",
+    "start_km": 22.481816128840908,
+    "end_km": 23.482265934130947,
+    "name": "Segment 19"
+  },
+  {
+    "id": 16,
+    "type": "FLAT",
+    "start_km": 23.482265934130947,
+    "end_km": 24.48540054137011,
+    "name": "Segment 20"
+  },
+  {
+    "id": 17,
+    "type": "UP",
+    "start_km": 24.48540054137011,
+    "end_km": 25.49597709699001,
+    "name": "Segment 21"
+  },
+  {
+    "id": 18,
+    "type": "FLAT",
+    "start_km": 25.49597709699001,
+    "end_km": 27.269646945106267,
+    "name": "Segment 22"
+  },
+  {
+    "id": 19,
+    "type": "UP",
+    "start_km": 27.269646945106267,
+    "end_km": 28.273449311169045,
+    "name": "Segment 23"
+  },
+  {
+    "id": 20,
+    "type": "FLAT",
+    "start_km": 28.273449311169045,
+    "end_km": 34.30193330010137,
+    "name": "Segment 24"
+  },
+  {
+    "id": 21,
+    "type": "UP",
+    "start_km": 34.30193330010137,
+    "end_km": 35.30418504698417,
+    "name": "Segment 25"
+  },
+  {
+    "id": 22,
+    "type": "DOWN",
+    "start_km": 35.30418504698417,
+    "end_km": 36.3089975569384,
+    "name": "Segment 26"
+  },
+  {
+    "id": 23,
+    "type": "UP",
+    "start_km": 36.3089975569384,
+    "end_km": 42.9447400312557,
+    "name": "Segment 27"
+  },
+  {
+    "id": 24,
+    "type": "FLAT",
+    "start_km": 42.9447400312557,
+    "end_km": 43.954411693161255,
+    "name": "Segment 28"
+  },
+  {
+    "id": 25,
+    "type": "DOWN",
+    "start_km": 43.954411693161255,
+    "end_km": 52.161754339386874,
+    "name": "Segment 29"
+  },
+  {
+    "id": 26,
+    "type": "FLAT",
+    "start_km": 52.161754339386874,
+    "end_km": 53.165363455365814,
+    "name": "Segment 30"
+  },
+  {
+    "id": 27,
+    "type": "DOWN",
+    "start_km": 53.165363455365814,
+    "end_km": 56.423381416934596,
+    "name": "Segment 31"
+  },
+  {
+    "id": 28,
+    "type": "FLAT",
+    "start_km": 56.423381416934596,
+    "end_km": 57.47027181338884,
+    "name": "Segment 32"
+  },
+  {
+    "id": 29,
+    "type": "DOWN",
+    "start_km": 57.47027181338884,
+    "end_km": 58.47572533213781,
+    "name": "Segment 33"
+  },
+  {
+    "id": 30,
+    "type": "FLAT",
+    "start_km": 58.47572533213781,
+    "end_km": 60.05337245043366,
+    "name": "Segment 34"
+  },
+  {
+    "id": 31,
+    "type": "DOWN",
+    "start_km": 60.05337245043366,
+    "end_km": 61.054692289713145,
+    "name": "Segment 35"
+  },
+  {
+    "id": 32,
+    "type": "FLAT",
+    "start_km": 61.054692289713145,
+    "end_km": 62.37483087775739,
+    "name": "Segment 36"
+  },
+  {
+    "id": 33,
+    "type": "DOWN",
+    "start_km": 62.37483087775739,
+    "end_km": 63.386932866254945,
+    "name": "Segment 37"
+  },
+  {
+    "id": 34,
+    "type": "FLAT",
+    "start_km": 63.386932866254945,
+    "end_km": 64.38797782569013,
+    "name": "Segment 38"
+  },
+  {
+    "id": 35,
+    "type": "UP",
+    "start_km": 64.38797782569013,
+    "end_km": 67.49113758039297,
+    "name": "Segment 39"
+  },
+  {
+    "id": 36,
+    "type": "FLAT",
+    "start_km": 67.49113758039297,
+    "end_km": 69.68185994347863,
+    "name": "Segment 40"
+  },
+  {
+    "id": 37,
+    "type": "DOWN",
+    "start_km": 69.68185994347863,
+    "end_km": 70.68700418888076,
+    "name": "Segment 41"
+  },
+  {
+    "id": 38,
+    "type": "FLAT",
+    "start_km": 70.68700418888076,
+    "end_km": 71.6891099595911,
+    "name": "Segment 42"
+  },
+  {
+    "id": 39,
+    "type": "DOWN",
+    "start_km": 71.6891099595911,
+    "end_km": 72.6971869251429,
+    "name": "Segment 43"
+  },
+  {
+    "id": 40,
+    "type": "FLAT",
+    "start_km": 72.6971869251429,
+    "end_km": 73.6993393312339,
+    "name": "Segment 44"
+  },
+  {
+    "id": 41,
+    "type": "DOWN",
+    "start_km": 73.6993393312339,
+    "end_km": 74.70799048852007,
+    "name": "Segment 45"
+  },
+  {
+    "id": 42,
+    "type": "FLAT",
+    "start_km": 74.70799048852007,
+    "end_km": 75.71010504926767,
+    "name": "Segment 46"
+  },
+  {
+    "id": 43,
+    "type": "UP",
+    "start_km": 75.71010504926767,
+    "end_km": 76.72463089338129,
+    "name": "Segment 47"
+  },
+  {
+    "id": 44,
+    "type": "DOWN",
+    "start_km": 76.72463089338129,
+    "end_km": 77.99160503348196,
+    "name": "Segment 48"
+  },
+  {
+    "id": 45,
+    "type": "FLAT",
+    "start_km": 77.99160503348196,
+    "end_km": 79.08046616750572,
+    "name": "Segment 49"
+  },
+  {
+    "id": 46,
+    "type": "DOWN",
+    "start_km": 79.08046616750572,
+    "end_km": 80.1064331125401,
+    "name": "Segment 50"
+  },
+  {
+    "id": 47,
+    "type": "FLAT",
+    "start_km": 80.1064331125401,
+    "end_km": 81.17014756314774,
+    "name": "Segment 51"
+  },
+  {
+    "id": 48,
+    "type": "UP",
+    "start_km": 81.17014756314774,
+    "end_km": 82.29236619052695,
+    "name": "Segment 52"
+  },
+  {
+    "id": 49,
+    "type": "FLAT",
+    "start_km": 82.29236619052695,
+    "end_km": 83.29573260900025,
+    "name": "Segment 53"
+  },
+  {
+    "id": 50,
+    "type": "UP",
+    "start_km": 83.29573260900025,
+    "end_km": 87.31519089646572,
+    "name": "Segment 54"
+  },
+  {
+    "id": 51,
+    "type": "FLAT",
+    "start_km": 87.31519089646572,
+    "end_km": 88.32530713695803,
+    "name": "Segment 55"
+  },
+  {
+    "id": 52,
+    "type": "DOWN",
+    "start_km": 88.32530713695803,
+    "end_km": 90.99996958785047,
+    "name": "Segment 56"
+  },
+  {
+    "id": 53,
+    "type": "FLAT",
+    "start_km": 90.99996958785047,
+    "end_km": 92.01150947280247,
+    "name": "Segment 57"
+  },
+  {
+    "id": 54,
+    "type": "DOWN",
+    "start_km": 92.01150947280247,
+    "end_km": 93.02262482042804,
+    "name": "Segment 58"
+  },
+  {
+    "id": 55,
+    "type": "FLAT",
+    "start_km": 93.02262482042804,
+    "end_km": 94.02424353817494,
+    "name": "Segment 59"
+  },
+  {
+    "id": 56,
+    "type": "UP",
+    "start_km": 94.02424353817494,
+    "end_km": 95.03343479728333,
+    "name": "Segment 60"
+  },
+  {
+    "id": 57,
+    "type": "DOWN",
+    "start_km": 95.03343479728333,
+    "end_km": 96.03428908161456,
+    "name": "Segment 61"
+  },
+  {
+    "id": 58,
+    "type": "FLAT",
+    "start_km": 96.03428908161456,
+    "end_km": 97.04232314919456,
+    "name": "Segment 62"
+  },
+  {
+    "id": 59,
+    "type": "DOWN",
+    "start_km": 97.04232314919456,
+    "end_km": 98.04415230144242,
+    "name": "Segment 63"
+  },
+  {
+    "id": 60,
+    "type": "FLAT",
+    "start_km": 98.04415230144242,
+    "end_km": 99.04583157060922,
+    "name": "Segment 64"
+  },
+  {
+    "id": 61,
+    "type": "UP",
+    "start_km": 99.04583157060922,
+    "end_km": 100.08877095614285,
+    "name": "Segment 65"
+  },
+  {
+    "id": 62,
+    "type": "FLAT",
+    "start_km": 100.08877095614285,
+    "end_km": 101.1790640050925,
+    "name": "Segment 66"
+  },
+  {
+    "id": 63,
+    "type": "UP",
+    "start_km": 101.1790640050925,
+    "end_km": 102.18284071148956,
+    "name": "Segment 67"
+  },
+  {
+    "id": 64,
+    "type": "FLAT",
+    "start_km": 102.18284071148956,
+    "end_km": 103.18551812390476,
+    "name": "Segment 68"
+  },
+  {
+    "id": 65,
+    "type": "UP",
+    "start_km": 103.18551812390476,
+    "end_km": 105.02239598644364,
+    "name": "Segment 69"
+  },
+  {
+    "id": 66,
+    "type": "FLAT",
+    "start_km": 105.02239598644364,
+    "end_km": 106.02554029845669,
+    "name": "Segment 70"
+  },
+  {
+    "id": 67,
+    "type": "UP",
+    "start_km": 106.02554029845669,
+    "end_km": 108.95204227595778,
+    "name": "Segment 71"
+  },
+  {
+    "id": 68,
+    "type": "FLAT",
+    "start_km": 108.95204227595778,
+    "end_km": 109.95466463402487,
+    "name": "Segment 72"
+  },
+  {
+    "id": 69,
+    "type": "DOWN",
+    "start_km": 109.95466463402487,
+    "end_km": 115.09482242741073,
+    "name": "Segment 73"
+  },
+  {
+    "id": 70,
+    "type": "FLAT",
+    "start_km": 115.09482242741073,
+    "end_km": 116.10483275178265,
+    "name": "Segment 74"
+  },
+  {
+    "id": 71,
+    "type": "DOWN",
+    "start_km": 116.10483275178265,
+    "end_km": 118.32882068962341,
+    "name": "Segment 75"
+  },
+  {
+    "id": 72,
+    "type": "FLAT",
+    "start_km": 118.32882068962341,
+    "end_km": 119.33512691818336,
+    "name": "Segment 76"
+  },
+  {
+    "id": 73,
+    "type": "DOWN",
+    "start_km": 119.33512691818336,
+    "end_km": 121.08444529971877,
+    "name": "Segment 77"
+  },
+  {
+    "id": 74,
+    "type": "FLAT",
+    "start_km": 121.08444529971877,
+    "end_km": 122.0893182388022,
+    "name": "Segment 78"
+  },
+  {
+    "id": 75,
+    "type": "DOWN",
+    "start_km": 122.0893182388022,
+    "end_km": 123.39751827508145,
+    "name": "Segment 79"
+  },
+  {
+    "id": 76,
+    "type": "FLAT",
+    "start_km": 123.39751827508145,
+    "end_km": 124.54521723591688,
+    "name": "Segment 80"
+  },
+  {
+    "id": 77,
+    "type": "DOWN",
+    "start_km": 124.54521723591688,
+    "end_km": 125.54750158496628,
+    "name": "Segment 81"
+  },
+  {
+    "id": 78,
+    "type": "FLAT",
+    "start_km": 125.54750158496628,
+    "end_km": 126.5487615103733,
+    "name": "Segment 82"
+  },
+  {
+    "id": 79,
+    "type": "UP",
+    "start_km": 126.5487615103733,
+    "end_km": 127.56444882224173,
+    "name": "Segment 83"
+  },
+  {
+    "id": 80,
+    "type": "DOWN",
+    "start_km": 127.56444882224173,
+    "end_km": 129.74067279827602,
+    "name": "Segment 84"
+  },
+  {
+    "id": 81,
+    "type": "FLAT",
+    "start_km": 129.74067279827602,
+    "end_km": 130.80883974124205,
+    "name": "Segment 85"
+  },
+  {
+    "id": 82,
+    "type": "UP",
+    "start_km": 130.80883974124205,
+    "end_km": 131.81007916176756,
+    "name": "Segment 86"
+  },
+  {
+    "id": 83,
+    "type": "DOWN",
+    "start_km": 131.81007916176756,
+    "end_km": 132.8124175969592,
+    "name": "Segment 87"
+  },
+  {
+    "id": 84,
+    "type": "FLAT",
+    "start_km": 132.8124175969592,
+    "end_km": 133.81355398184488,
+    "name": "Segment 88"
+  },
+  {
+    "id": 85,
+    "type": "UP",
+    "start_km": 133.81355398184488,
+    "end_km": 134.82255029082347,
+    "name": "Segment 89"
+  },
+  {
+    "id": 86,
+    "type": "FLAT",
+    "start_km": 134.82255029082347,
+    "end_km": 135.82364151628016,
+    "name": "Segment 90"
+  },
+  {
+    "id": 87,
+    "type": "UP",
+    "start_km": 135.82364151628016,
+    "end_km": 136.83005064018198,
+    "name": "Segment 91"
+  },
+  {
+    "id": 88,
+    "type": "DOWN",
+    "start_km": 136.83005064018198,
+    "end_km": 137.833881180049,
+    "name": "Segment 92"
+  },
+  {
+    "id": 89,
+    "type": "UP",
+    "start_km": 137.833881180049,
+    "end_km": 138.83959207147794,
+    "name": "Segment 93"
+  },
+  {
+    "id": 90,
+    "type": "DOWN",
+    "start_km": 138.83959207147794,
+    "end_km": 139.8433804478435,
+    "name": "Segment 94"
+  },
+  {
+    "id": 91,
+    "type": "FLAT",
+    "start_km": 139.8433804478435,
+    "end_km": 141.4926229292578,
+    "name": "Segment 95"
+  },
+  {
+    "id": 92,
+    "type": "UP",
+    "start_km": 141.4926229292578,
+    "end_km": 142.49888524870937,
+    "name": "Segment 96"
+  },
+  {
+    "id": 93,
+    "type": "FLAT",
+    "start_km": 142.49888524870937,
+    "end_km": 143.62042928207418,
+    "name": "Segment 97"
+  },
+  {
+    "id": 94,
+    "type": "UP",
+    "start_km": 143.62042928207418,
+    "end_km": 144.62783493858274,
+    "name": "Segment 98"
+  },
+  {
+    "id": 95,
+    "type": "FLAT",
+    "start_km": 144.62783493858274,
+    "end_km": 145.7446776606376,
+    "name": "Segment 99"
+  },
+  {
+    "id": 96,
+    "type": "UP",
+    "start_km": 145.7446776606376,
+    "end_km": 146.74972321816767,
+    "name": "Segment 100"
+  },
+  {
+    "id": 97,
+    "type": "FLAT",
+    "start_km": 146.74972321816767,
+    "end_km": 147.75544964898452,
+    "name": "Segment 101"
+  },
+  {
+    "id": 98,
+    "type": "UP",
+    "start_km": 147.75544964898452,
+    "end_km": 149.35920259842598,
+    "name": "Segment 102"
+  },
+  {
+    "id": 99,
+    "type": "FLAT",
+    "start_km": 149.35920259842598,
+    "end_km": 150.35922755645598,
+    "name": "Segment 103"
+  },
+  {
+    "id": 100,
+    "type": "UP",
+    "start_km": 150.35922755645598,
+    "end_km": 151.91196801042307,
+    "name": "Segment 104"
+  },
+  {
+    "id": 101,
+    "type": "FLAT",
+    "start_km": 151.91196801042307,
+    "end_km": 152.91211938440472,
+    "name": "Segment 105"
+  },
+  {
+    "id": 102,
+    "type": "UP",
+    "start_km": 152.91211938440472,
+    "end_km": 161.26142907711153,
+    "name": "Segment 106"
+  },
+  {
+    "id": 103,
+    "type": "FLAT",
+    "start_km": 161.26142907711153,
+    "end_km": 162.2758884792138,
+    "name": "Segment 107"
+  },
+  {
+    "id": 104,
+    "type": "DOWN",
+    "start_km": 162.2758884792138,
+    "end_km": 167.92322860513804,
+    "name": "Segment 108"
+  },
+  {
+    "id": 105,
+    "type": "FLAT",
+    "start_km": 167.92322860513804,
+    "end_km": 168.9258179134569,
+    "name": "Segment 109"
+  },
+  {
+    "id": 106,
+    "type": "UP",
+    "start_km": 168.9258179134569,
+    "end_km": 169.93566285109608,
+    "name": "Segment 110"
+  },
+  {
+    "id": 107,
+    "type": "FLAT",
+    "start_km": 169.93566285109608,
+    "end_km": 176.68954619070269,
+    "name": "Segment 111"
+  },
+  {
+    "id": 108,
+    "type": "DOWN",
+    "start_km": 176.68954619070269,
+    "end_km": 177.70014390784345,
+    "name": "Segment 112"
+  },
+  {
+    "id": 109,
+    "type": "FLAT",
+    "start_km": 177.70014390784345,
+    "end_km": 178.9920416389555,
+    "name": "Segment 113"
+  },
+  {
+    "id": 110,
+    "type": "UP",
+    "start_km": 178.9920416389555,
+    "end_km": 179.99403755227237,
+    "name": "Segment 114"
+  },
+  {
+    "id": 111,
+    "type": "FLAT",
+    "start_km": 179.99403755227237,
+    "end_km": 180.9949238708704,
+    "name": "Segment 115"
+  },
+  {
+    "id": 112,
+    "type": "UP",
+    "start_km": 180.9949238708704,
+    "end_km": 181.9962732747722,
+    "name": "Segment 116"
+  },
+  {
+    "id": 113,
+    "type": "FLAT",
+    "start_km": 181.9962732747722,
+    "end_km": 183.00594782181633,
+    "name": "Segment 117"
+  },
+  {
+    "id": 114,
+    "type": "UP",
+    "start_km": 183.00594782181633,
+    "end_km": 184.97493016597807,
+    "name": "Segment 118"
+  },
+  {
+    "id": 115,
+    "type": "FLAT",
+    "start_km": 184.97493016597807,
+    "end_km": 185.9851366670203,
+    "name": "Segment 119"
+  },
+  {
+    "id": 116,
+    "type": "DOWN",
+    "start_km": 185.9851366670203,
+    "end_km": 186.9976655489929,
+    "name": "Segment 120"
+  },
+  {
+    "id": 117,
+    "type": "FLAT",
+    "start_km": 186.9976655489929,
+    "end_km": 189.3584329462717,
+    "name": "Segment 121"
+  },
+  {
+    "id": 118,
+    "type": "DOWN",
+    "start_km": 189.3584329462717,
+    "end_km": 190.36103271390405,
+    "name": "Segment 122"
+  },
+  {
+    "id": 119,
+    "type": "UP",
+    "start_km": 190.36103271390405,
+    "end_km": 191.3650799842884,
+    "name": "Segment 123"
+  },
+  {
+    "id": 120,
+    "type": "FLAT",
+    "start_km": 191.3650799842884,
+    "end_km": 192.37228192609624,
+    "name": "Segment 124"
+  },
+  {
+    "id": 121,
+    "type": "DOWN",
+    "start_km": 192.37228192609624,
+    "end_km": 193.51531671526294,
+    "name": "Segment 125"
+  },
+  {
+    "id": 122,
+    "type": "FLAT",
+    "start_km": 193.51531671526294,
+    "end_km": 195.28793094941383,
+    "name": "Segment 126"
+  },
+  {
+    "id": 123,
+    "type": "DOWN",
+    "start_km": 195.28793094941383,
+    "end_km": 196.2894135391479,
+    "name": "Segment 127"
+  },
+  {
+    "id": 124,
+    "type": "FLAT",
+    "start_km": 196.2894135391479,
+    "end_km": 197.29221578903915,
+    "name": "Segment 128"
+  },
+  {
+    "id": 125,
+    "type": "DOWN",
+    "start_km": 197.29221578903915,
+    "end_km": 198.30207680619597,
+    "name": "Segment 129"
+  },
+  {
+    "id": 126,
+    "type": "FLAT",
+    "start_km": 198.30207680619597,
+    "end_km": 200.97265472436553,
+    "name": "Segment 130"
+  },
+  {
+    "id": 127,
+    "type": "UP",
+    "start_km": 200.97265472436553,
+    "end_km": 201.97708905162708,
+    "name": "Segment 131"
+  },
+  {
+    "id": 128,
+    "type": "FLAT",
+    "start_km": 201.97708905162708,
+    "end_km": 202.97989078198057,
+    "name": "Segment 132"
+  },
+  {
+    "id": 129,
+    "type": "UP",
+    "start_km": 202.97989078198057,
+    "end_km": 203.9876056812597,
+    "name": "Segment 133"
+  },
+  {
+    "id": 130,
+    "type": "FLAT",
+    "start_km": 203.9876056812597,
+    "end_km": 205.09578279621576,
+    "name": "Segment 134"
+  },
+  {
+    "id": 131,
+    "type": "DOWN",
+    "start_km": 205.09578279621576,
+    "end_km": 205.11792702251682,
+    "name": "Segment 135"
+  }
+]

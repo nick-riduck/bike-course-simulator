@@ -22,12 +22,122 @@ class Segment:
     heading: float     # degrees (0=North, 90=East)
     start_ele: float   # meters
     end_ele: float     # meters
+    lat: float = 0.0   # End latitude
+    lon: float = 0.0   # End longitude
+    start_lat: float = 0.0
+    start_lon: float = 0.0
 
 class GpxLoader:
     def __init__(self, gpx_path: str):
         self.gpx_path = gpx_path
         self.points: List[TrackPoint] = []
         self.segments: List[Segment] = []
+
+    def load_from_json_data(self, data: List[dict]):
+        """Load segments directly from a list of dictionaries (Simulation Result format)."""
+        self.segments = []
+        prev_dist = 0.0
+        prev_ele = data[0]['ele'] if data else 0.0
+        
+        # Check if first point is at dist 0, otherwise assume start at 0
+        if data and data[0]['dist_km'] == 0:
+            prev_ele = data[0]['ele']
+            start_k = 1
+        else:
+            start_k = 0
+            if data:
+                prev_ele = data[0]['ele'] 
+
+        for i in range(start_k, len(data)):
+            d = data[i]
+            dist_km = d['dist_km']
+            curr_dist = dist_km * 1000.0
+            length = curr_dist - prev_dist
+            
+            if length <= 0:
+                continue
+                
+            grade = d.get('grade_pct', 0.0) / 100.0
+            curr_ele = d['ele']
+            heading = d.get('heading', 0.0)
+            lat = d.get('lat', 0.0)
+            lon = d.get('lon', 0.0)
+            
+            seg = Segment(
+                index=len(self.segments),
+                start_dist=prev_dist,
+                end_dist=curr_dist,
+                length=length,
+                grade=grade,
+                heading=heading,
+                start_ele=prev_ele,
+                end_ele=curr_ele,
+                lat=lat,
+                lon=lon,
+                start_lat=data[i-1].get('lat', lat) if i > 0 else lat,
+                start_lon=data[i-1].get('lon', lon) if i > 0 else lon
+            )
+            self.segments.append(seg)
+            
+            prev_dist = curr_dist
+            prev_ele = curr_ele
+
+    def load_from_json_data(self, data: List[dict]):
+        """Load segments directly from a list of dictionaries (Simulation Result format)."""
+        self.segments = []
+        if not data:
+            return
+
+        # Determine start values
+        prev_dist = 0.0
+        prev_ele = data[0]['ele']
+        
+        # If data starts with a segment at dist > 0, we treat it as starting from prev_dist=0
+        # If the first point in JSON has dist_km=0, that's just a start point (not a segment usually), 
+        # but simulation_result.json segments list usually contains the END points of segments.
+        # e.g. [{dist_km: 0.01, ...}, ...]
+        
+        start_k = 0
+        if data[0]['dist_km'] == 0:
+             # If first point is 0km, it's likely the start point (not a segment end)
+             # But our list should be segment ends.
+             # If it exists, skip it as a segment but use it for ele
+             prev_ele = data[0]['ele']
+             start_k = 1
+
+        for i in range(start_k, len(data)):
+            d = data[i]
+            dist_km = d['dist_km']
+            curr_dist = dist_km * 1000.0
+            length = curr_dist - prev_dist
+            
+            if length <= 0:
+                continue
+                
+            grade = d.get('grade_pct', 0.0) / 100.0
+            curr_ele = d['ele']
+            heading = d.get('heading', 0.0)
+            lat = d.get('lat', 0.0)
+            lon = d.get('lon', 0.0)
+            
+            seg = Segment(
+                index=len(self.segments),
+                start_dist=prev_dist,
+                end_dist=curr_dist,
+                length=length,
+                grade=grade,
+                heading=heading,
+                start_ele=prev_ele,
+                end_ele=curr_ele,
+                lat=lat,
+                lon=lon,
+                start_lat=data[i-1].get('lat', lat) if i > 0 else lat,
+                start_lon=data[i-1].get('lon', lon) if i > 0 else lon
+            )
+            self.segments.append(seg)
+            
+            prev_dist = curr_dist
+            prev_ele = curr_ele
 
     def load(self):
         """Parse GPX and calculate basic distances."""
@@ -59,13 +169,19 @@ class GpxLoader:
             if prev_pt:
                 # 2D Distance (Haversine approximation for short distances)
                 d = self._haversine_distance(prev_pt, current_pt)
+                
+                # [Data Cleaning] Min Distance Filter (5m)
+                # Skip tiny movements that cause grade spikes
+                if d < 5.0:
+                    continue
+                    
                 total_dist += d
             
             current_pt.distance_from_start = total_dist
             self.points.append(current_pt)
             prev_pt = current_pt
 
-    def smooth_elevation(self, window_size: int = 5):
+    def smooth_elevation(self, window_size: int = 10):
         """Apply Moving Average smoothing to elevation."""
         if not self.points:
             return
@@ -122,6 +238,10 @@ class GpxLoader:
             curr_grade = (curr_pt.ele - start_pt.ele) / dist
             curr_heading = self._calculate_bearing(start_pt, curr_pt)
             
+            # [Data Cleaning] Clamp Grade to realistic range (-25% to +25%)
+            if curr_grade > 0.25: curr_grade = 0.25
+            if curr_grade < -0.25: curr_grade = -0.25
+
             # Check Triggers
             is_grade_change = abs(curr_grade - ref_grade) > grade_threshold
             is_heading_change = abs(curr_heading - ref_heading) > heading_threshold
@@ -138,8 +258,14 @@ class GpxLoader:
                     grade=curr_grade,
                     heading=curr_heading,
                     start_ele=start_pt.ele,
-                    end_ele=curr_pt.ele
+                    end_ele=curr_pt.ele,
+                    lat=curr_pt.lat,
+                    lon=curr_pt.lon,
+                    start_lat=start_pt.lat,
+                    start_lon=start_lon if 'start_lon' in locals() else start_pt.lon # safety check
                 )
+                # Correction: use start_pt.lon directly
+                seg.start_lon = start_pt.lon
                 segments.append(seg)
                 
                 # Reset references
@@ -160,7 +286,11 @@ class GpxLoader:
                     grade=curr_grade,
                     heading=curr_heading,
                     start_ele=start_pt.ele,
-                    end_ele=curr_pt.ele
+                    end_ele=curr_pt.ele,
+                    lat=curr_pt.lat,
+                    lon=curr_pt.lon,
+                    start_lat=start_pt.lat,
+                    start_lon=start_pt.lon
                 )
                 segments.append(seg)
 

@@ -20,6 +20,9 @@ class Rider:
     
     def __post_init__(self):
         """Initialize simulation state."""
+        # Normalize PDC keys to int
+        if self.pdc:
+            self.pdc = {int(k): float(v) for k, v in self.pdc.items()}
         self.reset_state()
 
     def reset_state(self):
@@ -89,23 +92,55 @@ class Rider:
         t = estimated_duration_hours
         
         # Data points for interpolation: (hours, cap_factor)
-        # Realistic Caps: Long rides limit peak power due to fatigue/durability
         points = [
-            (1.0, 1.20), # Short race: can push VO2max
+            (1.0, 1.20),
             (3.0, 1.10),
-            (5.0, 1.05), # Threshold limit
-            (8.0, 1.00)  # Long endurance: Do not exceed FTP on climbs
+            (5.0, 1.25),
+            (8.0, 1.20)
         ]
         
         if t <= points[0][0]: return points[0][1]
         if t >= points[-1][0]: return points[-1][1]
         
-        # Linear interpolation
         for i in range(len(points) - 1):
             x1, y1 = points[i]
             x2, y2 = points[i+1]
             if x1 <= t <= x2:
-                # y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
                 return y1 + (y2 - y1) * (t - x1) / (x2 - x1)
                 
-        return 1.0 # Fallback
+        return 1.0
+
+    def get_max_force(self) -> float:
+        """
+        Calculate maximum pedal force (Thrust Limit) based on PDC.
+        Target: 5s Power at Sprint Cadence (110rpm).
+        """
+        p_max = self.get_pdc_power(5)
+        # F = P / (Omega * Radius) = P / (11.52 * 0.34) = P / 3.91
+        return p_max / 3.91
+
+    def get_pdc_power(self, duration_sec: float) -> float:
+        """
+        Returns the maximum sustainable power for a given duration using 
+        linear interpolation of the PDC data.
+        """
+        if not self.pdc:
+            return self.cp * 1.2 # Fallback
+            
+        durations = sorted(self.pdc.keys())
+        powers = [self.pdc[d] for d in durations]
+        
+        # Boundary cases
+        if duration_sec <= durations[0]: return powers[0]
+        if duration_sec >= durations[-1]: return powers[-1]
+        
+        # Linear Interpolation
+        for i in range(len(durations) - 1):
+            if durations[i] <= duration_sec <= durations[i+1]:
+                t1, p1 = durations[i], powers[i]
+                t2, p2 = durations[i+1], powers[i+1]
+                # Log-linear interpolation is more accurate for PDC, 
+                # but linear is sufficient for this range.
+                return p1 + (p2 - p1) * (duration_sec - t1) / (t2 - t1)
+                
+        return self.cp
