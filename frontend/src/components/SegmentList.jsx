@@ -33,14 +33,15 @@ const SegmentList = () => {
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 bg-[#1E1E1E] z-10 shadow-sm">
             <tr className="text-[10px] uppercase tracking-wider text-gray-500 border-b border-gray-700">
-              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold w-10">NO</th>
               <th className="px-2 py-3 font-semibold text-center">Type</th>
+              <th className="px-2 py-3 font-semibold text-right">Start</th>
               <th className="px-2 py-3 font-semibold text-right">Dist</th>
               <th className="px-4 py-3 font-semibold text-right w-24">Power(W)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {segments.map((seg) => {
+            {segments.map((seg, idx) => {
               const isSelected = selectedSegmentIds.includes(seg.id);
               return (
                 <tr 
@@ -52,8 +53,8 @@ const SegmentList = () => {
                   }`}
                   onClick={(e) => toggleSegmentSelection(seg.id, e.shiftKey)}
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-gray-200 truncate max-w-[100px]">
-                    {seg.name}
+                  <td className="px-4 py-3 text-sm font-medium text-gray-400 font-mono">
+                    {idx + 1}
                   </td>
                   <td className="px-2 py-3 text-center">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
@@ -65,7 +66,10 @@ const SegmentList = () => {
                     </span>
                   </td>
                   <td className="px-2 py-3 text-xs text-right text-gray-400 font-mono">
-                    {((seg.end_dist - seg.start_dist) / 1000).toFixed(1)}km
+                    {(seg.start_dist / 1000).toFixed(1)}
+                  </td>
+                  <td className="px-2 py-3 text-xs text-right text-gray-400 font-mono">
+                    {((seg.end_dist - seg.start_dist) / 1000).toFixed(1)}
                   </td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <input 

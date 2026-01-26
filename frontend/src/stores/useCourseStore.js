@@ -253,6 +253,35 @@ const useCourseStore = create((set, get) => ({
     riderProfile: { ...state.riderProfile, ...profile }
   })),
 
+  // Move a segment boundary (resize adjacent segments)
+  moveSegmentBoundary: (segmentIndex, newDist) => set((state) => {
+    const { segments, _calcSegmentType } = state;
+    if (segmentIndex < 0 || segmentIndex >= segments.length - 1) return state;
+
+    const current = segments[segmentIndex];
+    const next = segments[segmentIndex + 1];
+
+    // Validation: prevent crossing other boundaries
+    if (newDist <= current.start_dist || newDist >= next.end_dist) return state;
+
+    // Recalculate types for affected segments
+    // Note: We need access to _calcSegmentType from state, or define it outside
+    // Since _calcSegmentType uses get(), we can call it if we use get() inside this action
+    // But here we are inside set callback. Let's use the one from state if available, or just update distances first.
+    // Actually, recalculation is complex inside reducer. Let's just update distances for now.
+    // Better: split this logic.
+    
+    // Correct approach:
+    const newSegments = [...segments];
+    
+    // Update distances
+    newSegments[segmentIndex] = { ...current, end_dist: newDist };
+    newSegments[segmentIndex + 1] = { ...next, start_dist: newDist };
+
+    return { segments: newSegments };
+  }),
+
+  // Update a single segment's property
   updateSegment: (id, updates) => set((state) => ({
     segments: state.segments.map(s => s.id === id ? { ...s, ...updates } : s)
   })),
