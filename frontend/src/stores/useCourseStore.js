@@ -151,12 +151,15 @@ const useCourseStore = create((set, get) => ({
       target_power: s.type === "UP" ? get().riderProfile.ftp * 1.1 : get().riderProfile.ftp * 0.8
     }));
 
-    set({ gpxData: points, segments: finalSegments });
+        set({ gpxData: points, segments: finalSegments });
 
-    console.log(`Loaded GPX: ${points.length} points, ${segments.length} segments`);
-  },
+        console.log(`Loaded GPX: ${points.length} points, ${finalSegments.length} segments`);
 
-  // Split a segment at a given distance
+      },
+
+    
+
+      // Split a segment at a given distance
   splitSegment: (splitDist) => {
     const { segments } = get();
     const newSegments = [];

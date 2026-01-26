@@ -51,17 +51,17 @@ const MapViewer = () => {
     return closest;
   }, [hoveredDist, gpxData]);
 
-  // Helper: Calculate offset point (15m to the right)
-  const getOffsetPoint = (lon, lat, bearing, offsetMeters = 15) => {
-    const R = 6378137; // Earth Radius
-    const d = offsetMeters;
-    const brng = (bearing + 90) * (Math.PI / 180); // Right 90 degrees
+  // Helper: Shift a point along a bearing
+  const shiftPoint = (lon, lat, bearing, dist) => {
+    const R = 6378137;
+    const d = dist;
+    const brng = bearing * (Math.PI / 180);
     const lat1 = lat * (Math.PI / 180);
     const lon1 = lon * (Math.PI / 180);
 
     const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng));
     const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2));
-
+    
     return [lon2 * (180 / Math.PI), lat2 * (180 / Math.PI)];
   };
 
@@ -84,38 +84,70 @@ const MapViewer = () => {
     if (gpxData.length < 2 || segments.length === 0) return [];
 
     const wallData = [];
-    let segIdx = 0;
+    const OFFSET_M = 15; // Shift distance
 
+    // 1. Pre-calculate Shifted Vertices to eliminate gaps
+    const shiftedPoints = [];
+
+    for (let i = 0; i < gpxData.length; i++) {
+      const curr = gpxData[i];
+      let bearing;
+
+      if (i === 0) {
+        // Start point: Shift 90 deg right of outgoing path
+        const next = gpxData[i + 1];
+        const b = getBearing(curr.lat, curr.lon, next.lat, next.lon);
+        bearing = b + 90;
+      } else if (i === gpxData.length - 1) {
+        // End point: Shift 90 deg right of incoming path
+        const prev = gpxData[i - 1];
+        const b = getBearing(prev.lat, prev.lon, curr.lat, curr.lon);
+        bearing = b + 90;
+      } else {
+        // Middle points: Calculate Angle Bisector
+        const prev = gpxData[i - 1];
+        const next = gpxData[i + 1];
+        const b1 = getBearing(prev.lat, prev.lon, curr.lat, curr.lon); // Incoming
+        const b2 = getBearing(curr.lat, curr.lon, next.lat, next.lon); // Outgoing
+        
+        let avgBearing = (b1 + b2) / 2;
+        if (Math.abs(b1 - b2) > 180) avgBearing += 180;
+        
+        bearing = avgBearing + 90; 
+      }
+
+      const shifted = shiftPoint(curr.lon, curr.lat, bearing, OFFSET_M);
+      shiftedPoints.push(shifted);
+    }
+
+    // 2. Build Wall using Shifted Vertices
+    let segIdx = 0;
     for (let i = 1; i < gpxData.length; i++) {
-      const p1 = gpxData[i - 1];
+      const p1 = gpxData[i - 1]; // Original for elevation
       const p2 = gpxData[i];
+      const s1 = shiftedPoints[i - 1]; // Shifted for position
+      const s2 = shiftedPoints[i];
       const dist = p2.dist_m;
 
-      // Find which segment this point belongs to
+      // Find segment
       while (segIdx < segments.length - 1 && dist > segments[segIdx].end_dist) {
         segIdx++;
       }
       const currentSeg = segments[segIdx];
 
-      // Color based on Segment Type
-      let color = [165, 214, 167]; // FLAT
-      if (currentSeg.type === 'UP') color = [244, 67, 54]; // UP
-      else if (currentSeg.type === 'DOWN') color = [0, 172, 193]; // DOWN
+      // Color
+      let color = [165, 214, 167]; 
+      if (currentSeg.type === 'UP') color = [244, 67, 54]; 
+      else if (currentSeg.type === 'DOWN') color = [0, 172, 193]; 
 
-      // Apply Offset for 2-way separation
-      const bearing = getBearing(p1.lat, p1.lon, p2.lat, p2.lon);
-      const [oLon1, oLat1] = getOffsetPoint(p1.lon, p1.lat, bearing);
-      const [oLon2, oLat2] = getOffsetPoint(p2.lon, p2.lat, bearing);
-
-      const bl = [oLon1, oLat1, 0];
-      const br = [oLon2, oLat2, 0];
-      const tr = [oLon2 + EPSILON, oLat2 + EPSILON, p2.ele * Z_SCALE];
-      const tl = [oLon1 + EPSILON, oLat1 + EPSILON, p1.ele * Z_SCALE];
+      const bl = [s1[0], s1[1], 0];
+      const br = [s2[0], s2[1], 0];
+      const tr = [s2[0] + EPSILON, s2[1] + EPSILON, p2.ele * Z_SCALE];
+      const tl = [s1[0] + EPSILON, s1[1] + EPSILON, p1.ele * Z_SCALE];
 
       wallData.push({ polygon: [bl, br, tr], color });
       wallData.push({ polygon: [bl, tr, tl], color });
     }
-    // ... (return PolygonLayer same) ...
 
     return [
       new PolygonLayer({
