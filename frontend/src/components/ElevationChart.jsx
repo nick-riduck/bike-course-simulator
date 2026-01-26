@@ -1,62 +1,111 @@
-import React, { useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useMemo, useRef } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Filler,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import useCourseStore from '../stores/useCourseStore';
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-[#1E1E1E] border border-gray-600 p-2 rounded shadow-lg text-xs">
-        <p className="font-bold text-white">Dist: {label}km</p>
-        <p className="text-[#2a9e92]">Ele: {payload[0].value}m</p>
-        <p className="text-gray-400">Grade: {payload[0].payload.grade}%</p>
-      </div>
-    );
-  }
-  return null;
-};
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Filler,
+  Legend
+);
 
 const ElevationChart = () => {
-  const { gpxData, setHoveredDist } = useCourseStore();
+  const { gpxData, hoveredDist, setHoveredDist } = useCourseStore();
+  const chartRef = useRef(null);
 
-  const chartData = useMemo(() => {
-    if (!gpxData || gpxData.length === 0) return [];
+  // Prepare Chart.js data structure
+  const data = useMemo(() => {
+    if (!gpxData || gpxData.length === 0) return { labels: [], datasets: [] };
     
-    // Sample data for performance
-    const maxPoints = 300;
-    const step = Math.max(1, Math.floor(gpxData.length / maxPoints));
+    // Downsample for performance if needed, but Chart.js handles thousands well
+    const labels = gpxData.map(p => (p.dist_m / 1000).toFixed(2));
+    const elevations = gpxData.map(p => p.ele);
     
-    return gpxData
-      .filter((_, i) => i % step === 0 || i === gpxData.length - 1)
-      .map(p => ({
-        dist_km: (p.dist_m / 1000).toFixed(2),
-        ele: Math.round(p.ele),
-        grade: p.grade_pct.toFixed(1),
-        original_dist_m: p.dist_m 
-      }));
+    return {
+      labels,
+      datasets: [
+        {
+          fill: true,
+          label: 'Elevation (m)',
+          data: elevations,
+          borderColor: '#2a9e92',
+          backgroundColor: 'rgba(42, 158, 146, 0.2)',
+          tension: 0.4,
+          pointRadius: 0, 
+          pointHoverRadius: 5,
+          borderWidth: 2,
+        },
+      ],
+    };
   }, [gpxData]);
 
-  // Manual mouse handler on container to guarantee event firing
-  const handleContainerMouseMove = (e) => {
-    if (!chartData || chartData.length === 0) return;
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const width = 800; // Fixed chart width
-    
-    // Calculate index from x position
-    if (x >= 0 && x <= width) {
-      const index = Math.floor((x / width) * chartData.length);
-      const point = chartData[Math.min(index, chartData.length - 1)];
-      
-      if (point) {
-        console.log("Chart Hover (Manual):", point.original_dist_m);
-        setHoveredDist(point.original_dist_m);
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false, // Disable animation for performance
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: '#1E1E1E',
+        titleColor: '#fff',
+        bodyColor: '#2a9e92',
+        borderColor: '#444',
+        borderWidth: 1,
+        callbacks: {
+          label: (context) => `Ele: ${context.parsed.y}m`,
+          title: (items) => `Dist: ${items[0].label}km`,
+        }
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: '#666', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+      },
+      y: {
+        grid: { color: '#333' },
+        ticks: { color: '#666' },
+        beginAtZero: false,
+      },
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false,
+    },
+    onHover: (event, activeElements) => {
+      if (activeElements.length > 0) {
+        const index = activeElements[0].index;
+        const dist = gpxData[index].dist_m;
+        
+        // Prevent infinite loop: Only update if value changed
+        if (dist !== hoveredDist) {
+          setHoveredDist(dist);
+        }
+      } else {
+        if (hoveredDist !== null) {
+          setHoveredDist(null);
+        }
       }
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredDist(null);
+    },
   };
 
   if (!gpxData || gpxData.length === 0) {
@@ -68,32 +117,10 @@ const ElevationChart = () => {
   }
 
   return (
-    <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg">
-      <h3 className="text-sm font-bold text-[#2a9e92] mb-2 uppercase tracking-wider">Elevation Profile (km)</h3>
-      {/* Container with manual event listener */}
-      <div 
-        style={{ width: '100%', overflowX: 'auto', cursor: 'crosshair' }}
-        onMouseMove={handleContainerMouseMove}
-        onMouseLeave={handleMouseLeave}
-      >
-        <AreaChart 
-          width={800}
-          height={250}
-          data={chartData} 
-          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id="colorEle" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#2a9e92" stopOpacity={0.4}/>
-              <stop offset="95%" stopColor="#2a9e92" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-          <XAxis dataKey="dist_km" tick={{fontSize: 10, fill: '#666'}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize: 10, fill: '#666'}} axisLine={false} tickLine={false} domain={['dataMin - 10', 'dataMax + 10']} />
-          <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="ele" stroke="#2a9e92" fillOpacity={1} fill="url(#colorEle)" isAnimationActive={false} />
-        </AreaChart>
+    <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[300px]">
+      <h3 className="text-sm font-bold text-[#2a9e92] mb-2 uppercase tracking-wider">Elevation Profile</h3>
+      <div className="w-full h-[230px]">
+        <Line ref={chartRef} data={data} options={options} />
       </div>
     </div>
   );
