@@ -15,7 +15,7 @@ const INITIAL_VIEW_STATE = {
 };
 
 const MapViewer = () => {
-  const { gpxData, hoveredDist } = useCourseStore();
+  const { gpxData, hoveredDist, segments } = useCourseStore();
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   
   const Z_SCALE = 5.0;
@@ -51,27 +51,71 @@ const MapViewer = () => {
     return closest;
   }, [hoveredDist, gpxData]);
 
-  // Generate 3D Curtain Wall from real points (Unlit, 선명한 색상)
+  // Helper: Calculate offset point (15m to the right)
+  const getOffsetPoint = (lon, lat, bearing, offsetMeters = 15) => {
+    const R = 6378137; // Earth Radius
+    const d = offsetMeters;
+    const brng = (bearing + 90) * (Math.PI / 180); // Right 90 degrees
+    const lat1 = lat * (Math.PI / 180);
+    const lon1 = lon * (Math.PI / 180);
+
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng));
+    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2));
+
+    return [lon2 * (180 / Math.PI), lat2 * (180 / Math.PI)];
+  };
+
+  // Helper: Calculate bearing
+  const getBearing = (startLat, startLng, destLat, destLng) => {
+    const startLatRad = startLat * (Math.PI / 180);
+    const startLngRad = startLng * (Math.PI / 180);
+    const destLatRad = destLat * (Math.PI / 180);
+    const destLngRad = destLng * (Math.PI / 180);
+
+    const y = Math.sin(destLngRad - startLngRad) * Math.cos(destLatRad);
+    const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+              Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(destLngRad - startLngRad);
+    const brng = Math.atan2(y, x);
+    return ((brng * 180) / Math.PI + 360) % 360;
+  };
+
+  // Generate 3D Curtain Wall synced with Segments
   const curtainLayers = useMemo(() => {
-    if (gpxData.length < 2) return [];
+    if (gpxData.length < 2 || segments.length === 0) return [];
 
     const wallData = [];
+    let segIdx = 0;
+
     for (let i = 1; i < gpxData.length; i++) {
       const p1 = gpxData[i - 1];
       const p2 = gpxData[i];
+      const dist = p2.dist_m;
 
-      let color = [165, 214, 167]; // Flat
-      if (p2.grade_pct > 2.0) color = [244, 67, 54]; // Uphill
-      else if (p2.grade_pct < -2.0) color = [0, 172, 193]; // Downhill
+      // Find which segment this point belongs to
+      while (segIdx < segments.length - 1 && dist > segments[segIdx].end_dist) {
+        segIdx++;
+      }
+      const currentSeg = segments[segIdx];
 
-      const bl = [p1.lon, p1.lat, 0];
-      const br = [p2.lon, p2.lat, 0];
-      const tr = [p2.lon + EPSILON, p2.lat + EPSILON, p2.ele * Z_SCALE];
-      const tl = [p1.lon + EPSILON, p1.lat + EPSILON, p1.ele * Z_SCALE];
+      // Color based on Segment Type
+      let color = [165, 214, 167]; // FLAT
+      if (currentSeg.type === 'UP') color = [244, 67, 54]; // UP
+      else if (currentSeg.type === 'DOWN') color = [0, 172, 193]; // DOWN
 
-      wallData.push({ polygon: [bl, br, tr], color, grade_pct: p2.grade_pct });
-      wallData.push({ polygon: [bl, tr, tl], color, grade_pct: p2.grade_pct });
+      // Apply Offset for 2-way separation
+      const bearing = getBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+      const [oLon1, oLat1] = getOffsetPoint(p1.lon, p1.lat, bearing);
+      const [oLon2, oLat2] = getOffsetPoint(p2.lon, p2.lat, bearing);
+
+      const bl = [oLon1, oLat1, 0];
+      const br = [oLon2, oLat2, 0];
+      const tr = [oLon2 + EPSILON, oLat2 + EPSILON, p2.ele * Z_SCALE];
+      const tl = [oLon1 + EPSILON, oLat1 + EPSILON, p1.ele * Z_SCALE];
+
+      wallData.push({ polygon: [bl, br, tr], color });
+      wallData.push({ polygon: [bl, tr, tl], color });
     }
+    // ... (return PolygonLayer same) ...
 
     return [
       new PolygonLayer({

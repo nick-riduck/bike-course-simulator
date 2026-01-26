@@ -18,7 +18,6 @@ const useCourseStore = create((set, get) => ({
     const parser = new XMLParser({ ignoreAttributes: false });
     const jsonObj = parser.parse(xmlString);
     
-    // Support standard GPX structure: gpx.trk.trkseg.trkpt
     const trkpts = jsonObj?.gpx?.trk?.trkseg?.trkpt;
     if (!trkpts || !Array.isArray(trkpts)) {
       console.error("Invalid GPX format: Could not find track points.");
@@ -63,45 +62,97 @@ const useCourseStore = create((set, get) => ({
       points.push({ lat, lon, ele, dist_m, grade_pct });
     });
 
-    // Auto-generate segments based on grade changes (Adaptive Segmentation)
-    const segments = [];
+    // 1. Initial Segmentation (Adaptive)
+    let rawSegments = [];
     let startIdx = 0;
-    
-    const getTerrainType = (grade) => {
-      if (grade > 3.5) return "UP";
-      if (grade < -3.5) return "DOWN";
+    const GRADE_THRESHOLD = 3.5; 
+    const MIN_SEG_DIST = 200;    
+
+    // Calculate grade between two points
+    const calcGrade = (p1, p2) => {
+      const d = p2.dist_m - p1.dist_m;
+      if (d === 0) return 0;
+      return ((p2.ele - p1.ele) / d) * 100;
+    };
+
+    const getTerrainType = (g) => {
+      if (g > 3.5) return "UP";
+      if (g < -3.5) return "DOWN";
       return "FLAT";
     };
 
-    let currentType = getTerrainType(points[0].grade_pct);
-    
+    let refGrade = calcGrade(points[0], points[Math.min(5, points.length-1)]);
+
     for (let i = 1; i < points.length; i++) {
-      const p = points[i];
-      const distFromStartOfSeg = p.dist_m - points[startIdx].dist_m;
-      const terrainType = getTerrainType(p.grade_pct);
+      const startPt = points[startIdx];
+      const currPt = points[i];
+      const segDist = currPt.dist_m - startPt.dist_m;
+      
+      // Instantaneous grade (smoothed over last few points)
+      const instantGrade = i > 5 ? calcGrade(points[i-5], currPt) : calcGrade(points[i-1], currPt);
 
-      // Trigger split if terrain type changes and minimum distance (200m) is met
-      const isTypeChange = terrainType !== currentType;
-      const isMinDistMet = distFromStartOfSeg > 200; // Restored to 200m
-      const isLastPoint = i === points.length - 1;
+      // Check trigger conditions
+      const gradeChange = Math.abs(instantGrade - refGrade);
+      const isSignificant = gradeChange > GRADE_THRESHOLD && segDist > MIN_SEG_DIST;
+      const isLast = i === points.length - 1;
 
-      if ((isTypeChange && isMinDistMet) || isLastPoint) {
-        // ... (rest is same)
-        segments.push({
-          id: segments.length + 1,
-          name: `Segment ${segments.length + 1}`,
-          start_dist: points[startIdx].dist_m,
-          end_dist: p.dist_m,
-          type: currentType,
-          target_power: currentType === "UP" ? get().riderProfile.ftp * 1.1 : get().riderProfile.ftp * 0.8
+      if (isSignificant || isLast) {
+        // Create segment based on average grade of the chunk
+        const avgGrade = ((currPt.ele - startPt.ele) / segDist) * 100;
+        const type = getTerrainType(avgGrade);
+        
+        rawSegments.push({
+          start_dist: startPt.dist_m,
+          end_dist: currPt.dist_m,
+          type: type,
+          avg_grade: avgGrade,
+          start_idx: startIdx,
+          end_idx: i
         });
         
         startIdx = i;
-        currentType = terrainType;
+        refGrade = instantGrade; // Adapt reference to new terrain
       }
     }
 
-    set({ gpxData: points, segments });
+    // 2. Post-processing: Merge adjacent same-type segments
+    if (rawSegments.length === 0 && points.length > 0) {
+       // Fallback for very short courses
+       const totalDist = points[points.length-1].dist_m;
+       rawSegments.push({start_dist:0, end_dist: totalDist, type: getTerrainType(0), avg_grade: 0});
+    }
+
+    const mergedSegments = [];
+    if (rawSegments.length > 0) {
+      let current = rawSegments[0];
+      
+      for (let k = 1; k < rawSegments.length; k++) {
+        const next = rawSegments[k];
+        if (current.type === next.type) {
+          // Merge
+          current.end_dist = next.end_dist;
+          // Re-calculate weighted average grade if needed, but for display type it's same
+        } else {
+          // Push and move next
+          mergedSegments.push(current);
+          current = next;
+        }
+      }
+      mergedSegments.push(current);
+    }
+
+    // 3. Finalize
+    const finalSegments = mergedSegments.map((s, idx) => ({
+      id: idx + 1,
+      name: `Segment ${idx + 1}`,
+      start_dist: s.start_dist,
+      end_dist: s.end_dist,
+      type: s.type,
+      target_power: s.type === "UP" ? get().riderProfile.ftp * 1.1 : get().riderProfile.ftp * 0.8
+    }));
+
+    set({ gpxData: points, segments: finalSegments });
+
     console.log(`Loaded GPX: ${points.length} points, ${segments.length} segments`);
   },
 
