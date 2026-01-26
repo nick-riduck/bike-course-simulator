@@ -44,23 +44,26 @@ const ElevationChart = () => {
   const { gpxData, hoveredDist, setHoveredDist, segments } = useCourseStore();
   const chartRef = useRef(null);
 
-  // Prepare chart data from GPX
-  const chartData = useMemo(() => {
-    if (!gpxData || gpxData.length === 0) return { labels: [], datasets: [] };
+  // 1. Prepare chart data from GPX (Linear Scale)
+  const data = useMemo(() => {
+    if (!gpxData || gpxData.length === 0) return { datasets: [] };
     
-    const labels = gpxData.map(p => (p.dist_m / 1000).toFixed(2));
-    const elevations = gpxData.map(p => p.ele);
+    const points = gpxData.map(p => ({
+      x: parseFloat((p.dist_m / 1000).toFixed(3)),
+      y: Math.round(p.ele),
+      original_dist_m: p.dist_m,
+      grade: p.grade_pct.toFixed(1)
+    }));
     
     return {
-      labels,
       datasets: [
         {
           fill: true,
-          label: 'Elevation (m)',
-          data: elevations,
+          label: 'Elevation',
+          data: points,
           borderColor: '#2a9e92',
           backgroundColor: 'rgba(42, 158, 146, 0.2)',
-          tension: 0.4,
+          tension: 0.1,
           pointRadius: 0, 
           pointHoverRadius: 5,
           borderWidth: 2,
@@ -69,39 +72,26 @@ const ElevationChart = () => {
     };
   }, [gpxData]);
 
-  // Generate dynamic annotations for segment boundaries and background colors
+  // 2. Generate Segment Annotations (Boxes)
   const annotations = useMemo(() => {
     if (!segments || segments.length === 0) return {};
     
-    const elements = {};
+    const boxes = {};
     segments.forEach((seg, i) => {
-      const xStart = (seg.start_dist / 1000).toFixed(2);
-      const xEnd = (seg.end_dist / 1000).toFixed(2);
-      
-      // 1. Background Box
-      elements[`box${i}`] = {
+      boxes[`box${i}`] = {
         type: 'box',
-        xMin: xStart,
-        xMax: xEnd,
+        xMin: seg.start_dist / 1000,
+        xMax: seg.end_dist / 1000,
         backgroundColor: seg.type === 'UP' 
-          ? 'rgba(244, 67, 54, 0.15)' 
-          : (seg.type === 'DOWN' ? 'rgba(0, 172, 193, 0.15)' : 'transparent'),
+          ? 'rgba(244, 67, 54, 0.25)' 
+          : (seg.type === 'DOWN' ? 'rgba(0, 172, 193, 0.25)' : 'transparent'),
         borderWidth: 0,
+        label: {
+          display: false
+        }
       };
-
-      // 2. Divider Line (only at the end of each segment except the last one)
-      if (i < segments.length - 1) {
-        elements[`line${i}`] = {
-          type: 'line',
-          xMin: xEnd,
-          xMax: xEnd,
-          borderColor: 'rgba(255, 255, 255, 0.2)',
-          borderWidth: 1,
-          borderDash: [4, 4],
-        };
-      }
     });
-    return elements;
+    return boxes;
   }, [segments]);
 
   const options = {
@@ -123,14 +113,20 @@ const ElevationChart = () => {
         borderWidth: 1,
         callbacks: {
           label: (context) => `Ele: ${context.parsed.y}m`,
-          title: (items) => `Dist: ${items[0].label}km`,
+          title: (items) => `Dist: ${items[0].parsed.x}km`,
         }
       },
     },
     scales: {
       x: {
+        type: 'linear',
         grid: { display: false },
-        ticks: { color: '#666', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+        ticks: { 
+          color: '#666', 
+          maxRotation: 0, 
+          autoSkip: true,
+          callback: (value) => `${value}km` 
+        },
       },
       y: {
         grid: { color: '#333' },
@@ -145,10 +141,13 @@ const ElevationChart = () => {
     },
     onHover: (event, activeElements) => {
       if (activeElements.length > 0) {
+        const datasetIndex = activeElements[0].datasetIndex;
         const index = activeElements[0].index;
-        const dist = gpxData[index].dist_m;
-        if (dist !== hoveredDist) {
-          setHoveredDist(dist);
+        const point = data.datasets[datasetIndex].data[index];
+        if (point && point.original_dist_m !== undefined) {
+          if (point.original_dist_m !== hoveredDist) {
+            setHoveredDist(point.original_dist_m);
+          }
         }
       } else {
         if (hoveredDist !== null) {
@@ -170,7 +169,7 @@ const ElevationChart = () => {
     <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[300px]">
       <h3 className="text-sm font-bold text-[#2a9e92] mb-2 uppercase tracking-wider">Elevation Profile</h3>
       <div className="w-full h-[230px]">
-        <Line ref={chartRef} data={chartData} options={options} />
+        <Line ref={chartRef} data={data} options={options} />
       </div>
     </div>
   );

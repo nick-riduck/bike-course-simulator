@@ -65,8 +65,9 @@ const useCourseStore = create((set, get) => ({
     // 1. Initial Segmentation (Adaptive)
     let rawSegments = [];
     let startIdx = 0;
-    const GRADE_THRESHOLD = 3.5; 
-    const MIN_SEG_DIST = 200;    
+    const GRADE_THRESHOLD = 4.0; // Increased to 4%
+    const MIN_SEG_DIST = 500;    // Increased to 500m
+
 
     // Calculate grade between two points
     const calcGrade = (p1, p2) => {
@@ -96,9 +97,10 @@ const useCourseStore = create((set, get) => ({
       const isSignificant = gradeChange > GRADE_THRESHOLD && segDist > MIN_SEG_DIST;
       const isLast = i === points.length - 1;
 
+      // Current average grade of this potential segment
+      const avgGrade = ((currPt.ele - startPt.ele) / segDist) * 100;
+
       if (isSignificant || isLast) {
-        // Create segment based on average grade of the chunk
-        const avgGrade = ((currPt.ele - startPt.ele) / segDist) * 100;
         const type = getTerrainType(avgGrade);
         
         rawSegments.push({
@@ -111,7 +113,11 @@ const useCourseStore = create((set, get) => ({
         });
         
         startIdx = i;
-        refGrade = instantGrade; // Adapt reference to new terrain
+        refGrade = instantGrade; // Reset reference for new segment
+      } else {
+        // Adapt reference to gradual changes (EMA)
+        // This prevents cutting on long, slow-changing slopes
+        refGrade = refGrade * 0.9 + instantGrade * 0.1;
       }
     }
 
