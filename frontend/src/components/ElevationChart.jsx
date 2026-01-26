@@ -41,7 +41,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const ElevationChart = () => {
-  const { gpxData, hoveredDist, setHoveredDist, segments } = useCourseStore();
+  const { gpxData, hoveredDist, setHoveredDist, segments, selectedSegmentIds, toggleSegmentSelection, splitSegment } = useCourseStore();
   const chartRef = useRef(null);
 
   // 1. Prepare chart data from GPX (Linear Scale)
@@ -72,27 +72,30 @@ const ElevationChart = () => {
     };
   }, [gpxData]);
 
-  // 2. Generate Segment Annotations (Boxes)
+  // 2. Generate Segment Annotations (Boxes) with Selection Highlight
   const annotations = useMemo(() => {
     if (!segments || segments.length === 0) return {};
     
     const boxes = {};
     segments.forEach((seg, i) => {
+      const isSelected = selectedSegmentIds.includes(seg.id);
+      
       boxes[`box${i}`] = {
         type: 'box',
         xMin: seg.start_dist / 1000,
         xMax: seg.end_dist / 1000,
         backgroundColor: seg.type === 'UP' 
-          ? 'rgba(244, 67, 54, 0.25)' 
-          : (seg.type === 'DOWN' ? 'rgba(0, 172, 193, 0.25)' : 'transparent'),
-        borderWidth: 0,
+          ? `rgba(244, 67, 54, ${isSelected ? 0.5 : 0.25})` 
+          : (seg.type === 'DOWN' ? `rgba(0, 172, 193, ${isSelected ? 0.5 : 0.25})` : `rgba(255, 255, 255, ${isSelected ? 0.2 : 0})`),
+        borderWidth: isSelected ? 2 : 0,
+        borderColor: '#FFD700', // Gold border for selection
         label: {
           display: false
         }
       };
     });
     return boxes;
-  }, [segments]);
+  }, [segments, selectedSegmentIds]);
 
   const options = {
     responsive: true,
@@ -155,6 +158,29 @@ const ElevationChart = () => {
         }
       }
     },
+    onClick: (event, activeElements) => {
+      if (activeElements.length > 0) {
+        const index = activeElements[0].index;
+        const point = data.datasets[0].data[index];
+        
+        if (point) {
+          const dist = point.original_dist_m;
+          // Find segment at this distance
+          const targetSeg = segments.find(s => dist >= s.start_dist && dist <= s.end_dist);
+          if (targetSeg) {
+            toggleSegmentSelection(targetSeg.id, event.native.shiftKey);
+          }
+        }
+      }
+    },
+  };
+
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    if (hoveredDist !== null) {
+        console.log("Splitting at:", hoveredDist);
+        splitSegment(hoveredDist);
+    }
   };
 
   if (!gpxData || gpxData.length === 0) {
@@ -168,7 +194,7 @@ const ElevationChart = () => {
   return (
     <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[300px]">
       <h3 className="text-sm font-bold text-[#2a9e92] mb-2 uppercase tracking-wider">Elevation Profile</h3>
-      <div className="w-full h-[230px]">
+      <div className="w-full h-[230px]" onContextMenu={handleContextMenu}>
         <Line ref={chartRef} data={data} options={options} />
       </div>
     </div>

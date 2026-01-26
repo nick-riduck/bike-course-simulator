@@ -15,7 +15,7 @@ const INITIAL_VIEW_STATE = {
 };
 
 const MapViewer = () => {
-  const { gpxData, hoveredDist, segments } = useCourseStore();
+  const { gpxData, hoveredDist, segments, selectedSegmentIds } = useCourseStore();
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   
   const Z_SCALE = 5.0;
@@ -85,37 +85,31 @@ const MapViewer = () => {
 
     const wallData = [];
     const OFFSET_M = 15; // Shift distance
-
-    // 1. Pre-calculate Shifted Vertices to eliminate gaps
     const shiftedPoints = [];
 
+    // 1. Pre-calculate Shifted Vertices
     for (let i = 0; i < gpxData.length; i++) {
       const curr = gpxData[i];
       let bearing;
 
       if (i === 0) {
-        // Start point: Shift 90 deg right of outgoing path
         const next = gpxData[i + 1];
         const b = getBearing(curr.lat, curr.lon, next.lat, next.lon);
         bearing = b + 90;
       } else if (i === gpxData.length - 1) {
-        // End point: Shift 90 deg right of incoming path
         const prev = gpxData[i - 1];
         const b = getBearing(prev.lat, prev.lon, curr.lat, curr.lon);
         bearing = b + 90;
       } else {
-        // Middle points: Calculate Angle Bisector
         const prev = gpxData[i - 1];
         const next = gpxData[i + 1];
-        const b1 = getBearing(prev.lat, prev.lon, curr.lat, curr.lon); // Incoming
-        const b2 = getBearing(curr.lat, curr.lon, next.lat, next.lon); // Outgoing
+        const b1 = getBearing(prev.lat, prev.lon, curr.lat, curr.lon);
+        const b2 = getBearing(curr.lat, curr.lon, next.lat, next.lon);
         
         let avgBearing = (b1 + b2) / 2;
         if (Math.abs(b1 - b2) > 180) avgBearing += 180;
-        
         bearing = avgBearing + 90; 
       }
-
       const shifted = shiftPoint(curr.lon, curr.lat, bearing, OFFSET_M);
       shiftedPoints.push(shifted);
     }
@@ -123,9 +117,9 @@ const MapViewer = () => {
     // 2. Build Wall using Shifted Vertices
     let segIdx = 0;
     for (let i = 1; i < gpxData.length; i++) {
-      const p1 = gpxData[i - 1]; // Original for elevation
+      const p1 = gpxData[i - 1];
       const p2 = gpxData[i];
-      const s1 = shiftedPoints[i - 1]; // Shifted for position
+      const s1 = shiftedPoints[i - 1];
       const s2 = shiftedPoints[i];
       const dist = p2.dist_m;
 
@@ -134,10 +128,12 @@ const MapViewer = () => {
         segIdx++;
       }
       const currentSeg = segments[segIdx];
+      const isSelected = selectedSegmentIds.includes(currentSeg.id);
 
-      // Color
+      // Color logic with selection highlight
       let color = [165, 214, 167]; 
-      if (currentSeg.type === 'UP') color = [244, 67, 54]; 
+      if (isSelected) color = [255, 215, 0]; // Gold for selection
+      else if (currentSeg.type === 'UP') color = [244, 67, 54]; 
       else if (currentSeg.type === 'DOWN') color = [0, 172, 193]; 
 
       const bl = [s1[0], s1[1], 0];
@@ -166,11 +162,11 @@ const MapViewer = () => {
         getPolygonOffset: ({layerIndex}) => [0, -1000]
       })
     ];
-  }, [gpxData]);
+  }, [gpxData, segments, selectedSegmentIds]);
 
   const layers = [
     ...curtainLayers,
-    // Hover Column Indicator (The Purple Pillar - Restored)
+    // Hover Column Indicator (Restored)
     ...(hoveredPoint ? [
       new ColumnLayer({
         id: 'hover-column',
@@ -179,7 +175,7 @@ const MapViewer = () => {
         getFillColor: [192, 38, 211, 255], // Brighter Neon Purple
         getElevation: d => d.ele * Z_SCALE * 1.5 + 1000, 
         elevationScale: 1,
-        radius: 50, 
+        radius: 100, // Massive radius for visibility
         extruded: true,
         pickable: false,
         material: false,
@@ -198,7 +194,7 @@ const MapViewer = () => {
           scrollZoom: true,
           doubleClickZoom: true,
           touchRotate: true,
-          maxPitch: 85,
+          maxPitch: 85, // Allowed to tilt almost flat
           minPitch: 0
         }}
         layers={layers}
