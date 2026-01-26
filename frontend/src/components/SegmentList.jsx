@@ -2,7 +2,7 @@ import React from 'react';
 import useCourseStore from '../stores/useCourseStore';
 
 const SegmentList = () => {
-  const { segments, riderProfile, updateSegment, selectedSegmentIds, toggleSegmentSelection, mergeSelectedSegments } = useCourseStore();
+  const { segments, riderProfile, updateSegment, selectedSegmentIds, toggleSegmentSelection, mergeSelectedSegments, exportGpx } = useCourseStore();
 
   if (!segments || segments.length === 0) {
     return (
@@ -17,7 +17,6 @@ const SegmentList = () => {
       <div className="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
         <h2 className="text-lg font-bold text-[#2a9e92]">Course Strategy</h2>
         <div className="flex gap-2">
-          <span className="text-xs text-gray-400 self-center">{segments.length} Segs</span>
           {selectedSegmentIds.length > 1 && (
             <button 
               onClick={mergeSelectedSegments}
@@ -26,6 +25,12 @@ const SegmentList = () => {
               Merge ({selectedSegmentIds.length})
             </button>
           )}
+          <button 
+            onClick={exportGpx}
+            className="bg-[#2a9e92] hover:bg-[#218c82] text-white text-xs px-3 py-1 rounded font-bold transition-colors shadow-sm"
+          >
+            Save GPX
+          </button>
         </div>
       </div>
       

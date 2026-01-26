@@ -94,6 +94,19 @@ const useCourseStore = create((set, get) => ({
       return R * c;
     };
 
+    // Check for saved metadata in <desc>
+    let restoredState = null;
+    try {
+        const desc = jsonObj?.gpx?.trk?.desc;
+        if (desc) {
+            // Unescape HTML entities if needed (simple check)
+            const jsonStr = desc.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+            restoredState = JSON.parse(jsonStr);
+        }
+    } catch (e) {
+        console.log("No valid metadata found in GPX description, using auto-segmentation.");
+    }
+
     trkpts.forEach((pt, i) => {
       const lat = parseFloat(pt['@_lat']);
       const lon = parseFloat(pt['@_lon']);
@@ -113,7 +126,17 @@ const useCourseStore = create((set, get) => ({
       points.push({ lat, lon, ele, dist_m, grade_pct });
     });
 
-    // 1. Initial Segmentation
+    if (restoredState && restoredState.segments) {
+        // Restore saved state
+        console.log("Restoring saved course plan...");
+        if (restoredState.riderProfile) {
+            set({ riderProfile: { ...get().riderProfile, ...restoredState.riderProfile } });
+        }
+        set({ gpxData: points, segments: restoredState.segments });
+        return;
+    }
+
+    // 1. Initial Segmentation (Auto)
     let rawSegments = [];
     let startIdx = 0;
     const GRADE_THRESHOLD = 4.0; 
@@ -176,6 +199,43 @@ const useCourseStore = create((set, get) => ({
 
     set({ gpxData: points, segments: finalSegments });
     console.log(`Loaded GPX: ${points.length} points, ${finalSegments.length} segments`);
+  },
+
+  // Export current state to GPX
+  exportGpx: () => {
+    const { gpxData, segments, riderProfile } = get();
+    if (!gpxData || gpxData.length === 0) return;
+
+    const metaData = JSON.stringify({ segments, riderProfile });
+    
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="BikeCourseSimulator">
+  <trk>
+    <name>Course Plan</name>
+    <desc>${metaData.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</desc>
+    <trkseg>
+`;
+
+    gpxData.forEach(p => {
+      gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}">
+        <ele>${p.ele}</ele>
+      </trkpt>\n`;
+    });
+
+    gpx += `    </trkseg>
+  </trk>
+</gpx>`;
+
+    // Trigger Download
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'course_plan.gpx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   splitSegment: (splitDist) => {
