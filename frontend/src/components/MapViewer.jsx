@@ -117,12 +117,21 @@ const MapViewer = () => {
       <DeckGL
         viewState={viewState}
         onViewStateChange={({viewState}) => setViewState(viewState)}
-        controller={true}
+        controller={{
+          dragRotate: true,
+          scrollZoom: true,
+          doubleClickZoom: true,
+          touchRotate: true,
+          maxPitch: 85,
+          minPitch: 0
+        }}
         layers={layers}
         getTooltip={({object}) => object && `Grade: ${object.grade_pct?.toFixed(1) || 'N/A'}%`}
         style={{position: 'absolute', top: 0, left: 0}}
       >
         <Map
+          viewState={viewState}
+          maxPitch={85} // Match DeckGL pitch limit
           mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
           reuseMaps
         />

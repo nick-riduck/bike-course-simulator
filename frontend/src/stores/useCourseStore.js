@@ -68,8 +68,8 @@ const useCourseStore = create((set, get) => ({
     let startIdx = 0;
     
     const getTerrainType = (grade) => {
-      if (grade > 2.0) return "UP";
-      if (grade < -2.0) return "DOWN";
+      if (grade > 3.5) return "UP";
+      if (grade < -3.5) return "DOWN";
       return "FLAT";
     };
 
@@ -81,12 +81,12 @@ const useCourseStore = create((set, get) => ({
       const terrainType = getTerrainType(p.grade_pct);
 
       // Trigger split if terrain type changes and minimum distance (200m) is met
-      // or if it's the last point
       const isTypeChange = terrainType !== currentType;
-      const isMinDistMet = distFromStartOfSeg > 200;
+      const isMinDistMet = distFromStartOfSeg > 200; // Restored to 200m
       const isLastPoint = i === points.length - 1;
 
       if ((isTypeChange && isMinDistMet) || isLastPoint) {
+        // ... (rest is same)
         segments.push({
           id: segments.length + 1,
           name: `Segment ${segments.length + 1}`,
@@ -134,6 +134,11 @@ const useCourseStore = create((set, get) => ({
 
   updateRiderProfile: (profile) => set((state) => ({
     riderProfile: { ...state.riderProfile, ...profile }
+  })),
+
+  // Update a single segment's property
+  updateSegment: (id, updates) => set((state) => ({
+    segments: state.segments.map(s => s.id === id ? { ...s, ...updates } : s)
   })),
 }));
 
