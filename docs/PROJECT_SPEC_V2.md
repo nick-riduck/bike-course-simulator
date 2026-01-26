@@ -52,7 +52,21 @@
     - `GET /weather`: 위치 + 시간 -> 풍향/풍속 데이터
 - **Data Model:** Pydantic을 활용한 엄격한 스키마 정의
 
-## 4. Jira 로드맵 (Roadmap)
+## 4. 데이터 스키마 및 저장 전략 (Data Strategy)
+
+### 4.1. 세그먼트 저장 (GPX Extensions)
+- **저장 위치:** GPX 파일 내 `<metadata>` -> `<extensions>` 태그 활용.
+- **기준 키(Key):** **누적 거리 (Cumulative Distance, meters)**.
+    - *이유:* 백엔드 로딩 시 노이즈 필터링(5m 미만 생략 등)으로 인해 포인트 인덱스가 변경될 수 있으므로, 불변 값인 '거리'를 사용하여 구간을 동기화함.
+- **JSON 구조 예시:**
+  ```json
+  [
+    {"id": 1, "name": "Warm-up", "start_dist_m": 0.0, "end_dist_m": 5000.0, "target_power": 150},
+    {"id": 2, "name": "Namsan Climb", "start_dist_m": 5000.0, "end_dist_m": 7200.0, "target_power": 300}
+  ]
+  ```
+
+## 5. Jira 로드맵 (Roadmap)
 
 본 프로젝트는 **[PRO-742] 에픽** 하위에서 관리하며, 다음 순서로 티켓을 발행하여 진행한다.
 
