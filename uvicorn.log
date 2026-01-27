@@ -1,96 +1,12 @@
 INFO:     Will watch for changes in these directories: ['/Users/nick/nick/bike_course_simulator']
 INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
-INFO:     Started reloader process [33415] using StatReload
-INFO:     Started server process [33417]
+INFO:     Started reloader process [47070] using StatReload
+INFO:     Started server process [47073]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:50270 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50270 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:50455 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51590 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52923 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53459 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55459 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51023 - "POST /upload_gpx HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'main.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [33417]
-INFO:     Started server process [33941]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:53566 - "POST /upload_gpx HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'src/gpx_loader.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [33941]
-INFO:     Started server process [34160]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:59781 - "POST /upload_gpx HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'main.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [34160]
-INFO:     Started server process [34365]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:65412 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58110 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61283 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54413 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58334 - "POST /upload_gpx HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'src/gpx_loader.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [34365]
-INFO:     Started server process [35282]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-WARNING:  StatReload detected changes in 'main.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [35282]
-INFO:     Started server process [35286]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:51004 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53166 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53722 - "POST /upload_gpx HTTP/1.1" 200 OK
-WARNING:  StatReload detected changes in 'main.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [35286]
-INFO:     Started server process [35510]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     127.0.0.1:56158 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61027 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55179 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56091 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56792 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57754 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61548 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57617 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:58781 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59327 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61030 - "OPTIONS /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63975 - "POST /upload_gpx HTTP/1.1" 200 OK
 Successfully updated simulation_result.json
-INFO:     127.0.0.1:61030 - "POST /simulate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50517 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52432 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52957 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57148 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59105 - "OPTIONS /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63975 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49595 - "POST /upload_gpx HTTP/1.1" 200 OK
 Successfully updated simulation_result.json
-INFO:     127.0.0.1:59105 - "POST /simulate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60043 - "POST /upload_gpx HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51550 - "POST /upload_gpx HTTP/1.1" 200 OK
-Successfully updated simulation_result.json
-INFO:     127.0.0.1:56073 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49595 - "POST /simulate HTTP/1.1" 200 OK

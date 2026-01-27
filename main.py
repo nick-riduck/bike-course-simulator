@@ -36,7 +36,7 @@ class SegmentInput(BaseModel):
 
 class RiderInput(BaseModel):
     weight_kg: float
-    ftp: float
+    cp: float
     bike_weight: float = 8.5
     w_prime: float = 20000.0 
 
@@ -108,7 +108,7 @@ def run_simulation(req: SimulationRequest):
         raise HTTPException(status_code=400, detail="No GPX points provided")
 
     # 1. Setup Rider & Physics
-    rider = Rider(weight=req.rider.weight_kg, cp=req.rider.ftp, w_prime_max=req.rider.w_prime)
+    rider = Rider(weight=req.rider.weight_kg, cp=req.rider.cp, w_prime_max=req.rider.w_prime)
     physics_params = PhysicsParams(bike_weight=req.rider.bike_weight)
     engine = PhysicsEngine(rider, physics_params)
 
@@ -124,7 +124,7 @@ def run_simulation(req: SimulationRequest):
 
     for p_seg in physics_segments:
         mid_dist = (p_seg.start_dist + p_seg.end_dist) / 2
-        target_power = req.rider.ftp * 0.7 
+        target_power = req.rider.cp * 0.7 # Default fallback
         for u_seg in req.segments:
             if u_seg.start_dist <= mid_dist < u_seg.end_dist:
                 target_power = u_seg.target_power

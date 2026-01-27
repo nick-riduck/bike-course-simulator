@@ -1,169 +1,183 @@
 import { create } from 'zustand';
+import { XMLParser } from 'fast-xml-parser';
+import riderData from '../../../rider_data.json'; 
+
+// --- Helper Functions (Pure Logic) ---
+const calculateGradeAndType = (gpxData, startDist, endDist) => {
+    if (!gpxData || gpxData.length === 0) return { type: 'FLAT', avg_grade: 0 };
+    
+    // Find elevation
+    let startEle = gpxData[0].ele;
+    let endEle = gpxData[gpxData.length-1].ele;
+    
+    // Simple find is robust enough
+    for(const p of gpxData) { if (p.dist_m >= startDist) { startEle = p.ele; break; } }
+    for(const p of gpxData) { if (p.dist_m >= endDist) { endEle = p.ele; break; } }
+
+    const dist = endDist - startDist;
+    const avgGrade = dist > 0 ? ((endEle - startEle) / dist) * 100 : 0;
+    
+    let type = 'FLAT';
+    if (avgGrade > 3.5) type = 'UP';
+    else if (avgGrade < -3.5) type = 'DOWN';
+    
+    return { type, avg_grade: avgGrade };
+};
+
+const initialRider = {
+    ...riderData.rider_a,
+    bike_weight: 8.5
+};
 
 const useCourseStore = create((set, get) => ({
   gpxData: [], 
-  atomicSegments: [], // New: Physics-level segments from backend
-  segments: [], // User-level clustered segments
+  atomicSegments: [], 
+  segments: [], 
   hoveredDist: null, 
   selectedSegmentIds: [], 
   simulationResult: null,
-  riderProfile: {
-    weight_kg: 70,
-    ftp: 250,
-    bike_weight: 8.5,
-    w_prime: 20000
-  },
+  riderProfile: initialRider,
+  riderPresets: riderData,
 
   setHoveredDist: (dist) => set({ hoveredDist: dist }),
 
-  // Unified Grade & Type calculation (used during clustering)
-  _getStatsForRange: (startDist, endDist) => {
-    const { gpxData } = get();
-    if (!gpxData.length) return { type: 'FLAT', avg_grade: 0 };
-    const pStart = gpxData.find(p => p.dist_m >= startDist) || gpxData[0];
-    const pEnd = gpxData.find(p => p.dist_m >= endDist) || gpxData[gpxData.length-1];
-    const d = pEnd.dist_m - pStart.dist_m;
-    const g = d > 0 ? ((pEnd.ele - pStart.ele) / d) * 100 : 0;
-    return { avg_grade: g, type: g > 3.5 ? 'UP' : (g < -3.5 ? 'DOWN' : 'FLAT') };
-  },
+  applyRiderPreset: (key) => set((state) => {
+    const preset = state.riderPresets[key];
+    if (!preset) return state;
+    return {
+        riderProfile: {
+            ...preset,
+            bike_weight: 8.5 
+        }
+    };
+  }),
 
-  // Apply simulation results to user segments
-  _applySimulationStats: (userSegments, simData = null) => {
+  // Stats Aggregation (Needs Simulation Result)
+  _applySimulationStats: (targetSegments, simData = null) => {
     const result = simData || get().simulationResult;
-    if (!result || !result.track_data) return userSegments;
+    if (!result || !result.track_data) return targetSegments;
     const track = result.track_data;
-    return userSegments.map(seg => {
-      const relevant = track.filter(p => (p.dist_km * 1000) > seg.start_dist && (p.dist_km * 1000) <= seg.end_dist);
-      if (relevant.length > 0) {
-        const startT = track.findLast(p => (p.dist_km * 1000) <= seg.start_dist)?.time_sec || 0;
-        const duration = relevant[relevant.length - 1].time_sec - startT;
-        const avgPower = relevant.reduce((sum, p) => sum + p.power, 0) / relevant.length;
-        return { ...seg, simulated_duration: duration, simulated_avg_power: avgPower };
+    
+    return targetSegments.map(seg => {
+      const relevantPoints = track.filter(p => (p.dist_km * 1000) > seg.start_dist && (p.dist_km * 1000) <= seg.end_dist);
+      if (relevantPoints.length > 0) {
+        const endTime = relevantPoints[relevantPoints.length - 1].time_sec;
+        const prevPoint = track.findLast(p => (p.dist_km * 1000) <= seg.start_dist);
+        const startTime = prevPoint ? prevPoint.time_sec : 0;
+        
+        // Use helper to recalc grade
+        const gpxData = get().gpxData;
+        const stats = calculateGradeAndType(gpxData, seg.start_dist, seg.end_dist);
+        
+        const avgPower = relevantPoints.reduce((sum, p) => sum + p.power, 0) / relevantPoints.length;
+        const avgSpeed = relevantPoints.reduce((sum, p) => sum + p.speed_kmh, 0) / relevantPoints.length;
+        
+        return { 
+            ...seg, 
+            simulated_duration: endTime - startTime, 
+            simulated_avg_power: avgPower,
+            simulated_avg_speed: avgSpeed,
+            avg_grade: stats.avg_grade, // Ensure grade is correct
+            type: stats.type
+        };
       }
       return seg;
     });
   },
 
-  // New: Load GPX via Backend Preprocessing
+  toggleSegmentSelection: (id, multiSelect) => set((state) => {
+    const isSelected = state.selectedSegmentIds.includes(id);
+    if (multiSelect && state.selectedSegmentIds.length > 0) {
+      const fIdx = state.segments.findIndex(s => s.id === state.selectedSegmentIds[0]);
+      const lIdx = state.segments.findIndex(s => s.id === id);
+      const range = state.segments.slice(Math.min(fIdx, lIdx), Math.max(fIdx, lIdx) + 1).map(s => s.id);
+      return { selectedSegmentIds: range };
+    }
+    return { selectedSegmentIds: isSelected ? (multiSelect ? state.selectedSegmentIds.filter(x => x !== id) : []) : (multiSelect ? [...state.selectedSegmentIds, id] : [id]) };
+  }),
+
   uploadGpx: async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8123/upload_gpx', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetch('http://localhost:8123/upload_gpx', { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Upload failed');
       const data = await response.json();
 
-      // Preprocess points to add grade_pct (Backend doesn't provide it per point)
       const pointsWithGrade = data.points.map((p, i, arr) => {
           let grade = 0;
           if (i > 0) {
-              const prev = arr[i-1];
-              const d = p.dist_m - prev.dist_m;
-              if (d > 0) grade = ((p.ele - prev.ele) / d) * 100;
+              const d = p.dist_m - arr[i-1].dist_m;
+              if (d > 0) grade = ((p.ele - arr[i-1].ele) / d) * 100;
           }
           return { ...p, grade_pct: grade };
       });
 
-      // data.points, data.atomic_segments
-      set({ gpxData: data.points, atomicSegments: data.atomic_segments });
-
-      // --- Advanced Clustering Logic ---
+      set({ gpxData: pointsWithGrade, atomicSegments: data.atomic_segments });
       
-      // 1. Assign Initial Types
+      // Use Local Data for logic
+      const gpxDataForCalc = pointsWithGrade;
+
       let workSegments = data.atomic_segments.map(as => ({
           ...as,
           type: as.avg_grade > 3.5 ? 'UP' : (as.avg_grade < -3.5 ? 'DOWN' : 'FLAT'),
           length: as.end_dist - as.start_dist
       }));
 
-      // 2. Pass 1: Sandwich Smoothing (Noise Reduction)
-      // Look for patterns like A-B-A where B is short and weak
+      // Pass 1
       for (let i = 1; i < workSegments.length - 1; i++) {
           const prev = workSegments[i-1];
           const curr = workSegments[i];
           const next = workSegments[i+1];
-
           if (prev.type === next.type && curr.type !== prev.type) {
-              // Condition: Short length AND grade isn't too extreme compared to neighbors
-              // e.g. UP(5%) - FLAT(1%) - UP(6%) -> Merge
-              // e.g. UP(5%) - DOWN(-10%) - UP(6%) -> Keep (Extreme change)
-              
-              const isShort = curr.length < 500; // 500m threshold
-              const gradeDiff = Math.abs(curr.avg_grade - prev.avg_grade);
-              const isWeak = gradeDiff < 5.0; // If grade change is within 5%, it's noise
-
-              if (isShort && isWeak) {
-                  curr.type = prev.type; // Absorb into the group
-              }
+              if (curr.length < 500 && Math.abs(curr.avg_grade - prev.avg_grade) < 5.0) curr.type = prev.type;
           }
       }
 
-      // 3. Explicit Clustering (Merge same adjacent types)
+      // Clustering
       const clusteredSegments = [];
       if (workSegments.length > 0) {
           let currentGroupStart = workSegments[0].start_dist;
           let currentType = workSegments[0].type;
-          
           for (let i = 1; i < workSegments.length; i++) {
               const ws = workSegments[i];
               if (ws.type !== currentType) {
-                  // Commit current group
                   const prevEnd = workSegments[i-1].end_dist;
-                  const stats = get()._getStatsForRange(currentGroupStart, prevEnd);
-                  
+                  const stats = calculateGradeAndType(gpxDataForCalc, currentGroupStart, prevEnd);
                   clusteredSegments.push({
-                      id: 0, // Temp ID
-                      start_dist: currentGroupStart,
-                      end_dist: prevEnd,
-                      type: currentType,
-                      avg_grade: stats.avg_grade,
-                      target_power: currentType === 'UP' ? 270 : 200
+                      id: 0, start_dist: currentGroupStart, end_dist: prevEnd, type: currentType, avg_grade: stats.avg_grade,
+                      target_power: currentType === 'UP' ? get().riderProfile.cp * 1.1 : get().riderProfile.cp * 0.8
                   });
-                  
-                  // Start new group
                   currentGroupStart = ws.start_dist;
                   currentType = ws.type;
               }
           }
-          // Commit last group
           const lastEnd = workSegments[workSegments.length - 1].end_dist;
-          const stats = get()._getStatsForRange(currentGroupStart, lastEnd);
+          const stats = calculateGradeAndType(gpxDataForCalc, currentGroupStart, lastEnd);
           clusteredSegments.push({
-              id: 0,
-              start_dist: currentGroupStart,
-              end_dist: lastEnd,
-              type: currentType,
-              avg_grade: stats.avg_grade,
-              target_power: currentType === 'UP' ? 270 : 200
+              id: 0, start_dist: currentGroupStart, end_dist: lastEnd, type: currentType, avg_grade: stats.avg_grade,
+              target_power: currentType === 'UP' ? get().riderProfile.cp * 1.1 : get().riderProfile.cp * 0.8
           });
       }
 
-      // 4. Pass 2: Aggressive Smoothing (Grade Diff < 2%)
+      // Pass 2
       let mergedSegments = [...clusteredSegments];
       let changed = true;
-      
       while (changed) {
           changed = false;
           const nextPass = [];
           if (mergedSegments.length === 0) break;
-          
           let current = mergedSegments[0];
-          
           for (let i = 1; i < mergedSegments.length; i++) {
               const next = mergedSegments[i];
               const gradeDiff = Math.abs(current.avg_grade - next.avg_grade);
               const isShort = (current.end_dist - current.start_dist) < 300 || (next.end_dist - next.start_dist) < 300;
-              
-              // Merge if same type OR similar grade OR noise
               if (current.type === next.type || gradeDiff < 2.0 || isShort) {
                   current.end_dist = next.end_dist;
-                  const stats = get()._getStatsForRange(current.start_dist, current.end_dist);
+                  const stats = calculateGradeAndType(gpxDataForCalc, current.start_dist, current.end_dist);
                   current.avg_grade = stats.avg_grade;
-                  current.type = stats.type; // Update type based on new average
+                  current.type = stats.type;
                   changed = true;
               } else {
                   nextPass.push(current);
@@ -174,13 +188,10 @@ const useCourseStore = create((set, get) => ({
           mergedSegments = nextPass;
       }
       
-      // Re-index IDs
       const finalUserSegments = mergedSegments.map((s, idx) => ({ ...s, id: idx + 1, name: `Segment ${idx + 1}` }));
-
       set({ segments: finalUserSegments, simulationResult: null });
-    } catch (error) {
-      console.error("GPX Upload Error:", error);
-    }
+
+    } catch (e) { console.error(e); }
   },
 
   runSimulation: async () => {
@@ -190,7 +201,12 @@ const useCourseStore = create((set, get) => ({
       const payload = { 
           points: gpxData, 
           segments: segments.map(s => ({ id: s.id, start_dist: s.start_dist, end_dist: s.end_dist, target_power: s.target_power })), 
-          rider: riderProfile 
+          rider: {
+              weight_kg: riderProfile.weight_kg,
+              cp: riderProfile.cp,
+              bike_weight: riderProfile.bike_weight,
+              w_prime: riderProfile.w_prime
+          }
       };
       const response = await fetch('http://localhost:8123/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await response.json();
@@ -198,29 +214,34 @@ const useCourseStore = create((set, get) => ({
     } catch (e) { console.error(e); }
   },
 
-  exportGpx: () => { /* Same as before... */ },
-  exportJson: () => { /* Same as before... */ },
+  exportGpx: () => { 
+    const { gpxData, segments, riderProfile } = get();
+    const meta = JSON.stringify({ segments, riderProfile });
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="BikeCourseSimulator"><trk><name>Course Plan</name><desc>${meta.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</desc><trkseg>`;
+    gpxData.forEach(p => { gpx += `<trkpt lat="${p.lat}" lon="${p.lon}"><ele>${p.ele}</ele></trkpt>`; });
+    gpx += `</trkseg></trk></gpx>`;
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'course_plan.gpx'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  },
 
-  toggleSegmentSelection: (id, multi) => set(s => {
-    const is = s.selectedSegmentIds.includes(id);
-    if (multi && s.selectedSegmentIds.length) {
-      const fIdx = s.segments.findIndex(x => x.id === s.selectedSegmentIds[0]);
-      const lIdx = s.segments.findIndex(x => x.id === id);
-      const range = s.segments.slice(Math.min(fIdx, lIdx), Math.max(fIdx, lIdx) + 1).map(x => x.id);
-      return { selectedSegmentIds: range };
-    }
-    return { selectedSegmentIds: is ? (multi ? s.selectedSegmentIds.filter(x => x !== id) : []) : (multi ? [...s.selectedSegmentIds, id] : [id]) };
-  }),
+  exportJson: () => { 
+    const { simulationResult } = get();
+    if (!simulationResult) return;
+    const blob = new Blob([JSON.stringify(simulationResult, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'simulation_result.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  },
 
-  splitSegment: (dist) => {
-    const { segments, _getStatsForRange, _applySimulationStats } = get();
+  splitSegment: (splitDist) => {
+    const { segments, riderProfile, _applySimulationStats, gpxData } = get();
     const news = [];
     segments.forEach(seg => {
-      if (dist > seg.start_dist && dist < seg.end_dist) {
-        const s1 = _getStatsForRange(seg.start_dist, dist);
-        const s2 = _getStatsForRange(dist, seg.end_dist);
-        news.push({ ...seg, end_dist: dist, ...s1 });
-        news.push({ ...seg, id: Date.now(), start_dist: dist, ...s2 });
+      if (splitDist > seg.start_dist && splitDist < seg.end_dist) {
+        const s1 = calculateGradeAndType(gpxData, seg.start_dist, splitDist);
+        const s2 = calculateGradeAndType(gpxData, splitDist, seg.end_dist);
+        news.push({ ...seg, end_dist: splitDist, ...s1, target_power: s1.type === "UP" ? riderProfile.cp * 1.1 : riderProfile.cp * 0.8 });
+        news.push({ ...seg, id: Date.now(), start_dist: splitDist, ...s2, target_power: s2.type === "UP" ? riderProfile.cp * 1.1 : riderProfile.cp * 0.8 });
       } else news.push(seg);
     });
     set({ segments: _applySimulationStats(news.sort((a, b) => a.start_dist - b.start_dist)) });
@@ -229,8 +250,8 @@ const useCourseStore = create((set, get) => ({
   mergeSelectedSegments: () => set(s => {
     const targets = s.segments.filter(x => s.selectedSegmentIds.includes(x.id)).sort((a,b) => a.start_dist - b.start_dist);
     if (targets.length < 2) return s;
-    const stats = s._getStatsForRange(targets[0].start_dist, targets[targets.length-1].end_dist);
-    const merged = { ...targets[0], end_dist: targets[targets.length-1].end_dist, ...stats };
+    const stats = calculateGradeAndType(s.gpxData, targets[0].start_dist, targets[targets.length-1].end_dist);
+    const merged = { ...targets[0], end_dist: targets[targets.length-1].end_dist, ...stats, target_power: stats.type === "UP" ? s.riderProfile.cp * 1.1 : s.riderProfile.cp * 0.8 };
     const filtered = s.segments.filter(x => !s.selectedSegmentIds.includes(x.id));
     filtered.push(merged);
     return { segments: s._applySimulationStats(filtered.sort((a,b) => a.start_dist-b.start_dist)), selectedSegmentIds: [] };
@@ -240,13 +261,14 @@ const useCourseStore = create((set, get) => ({
     if (idx < 0 || idx >= s.segments.length - 1) return s;
     const s1 = { ...s.segments[idx], end_dist: dist };
     const s2 = { ...s.segments[idx+1], start_dist: dist };
-    const st1 = s._getStatsForRange(s1.start_dist, s1.end_dist);
-    const st2 = s._getStatsForRange(s2.start_dist, s2.end_dist);
+    const st1 = calculateGradeAndType(s.gpxData, s1.start_dist, s1.end_dist);
+    const st2 = calculateGradeAndType(s.gpxData, s2.start_dist, s2.end_dist);
     const news = [...s.segments]; news[idx] = { ...s1, ...st1 }; news[idx+1] = { ...s2, ...st2 };
     return { segments: s._applySimulationStats(news) };
   }),
 
-  updateSegment: (id, u) => set(s => ({ segments: s.segments.map(seg => seg.id === id ? { ...seg, ...u } : seg) })),
+  updateRiderProfile: (p) => set((s) => ({ riderProfile: { ...s.riderProfile, ...p } })),
+  updateSegment: (id, u) => set((s) => ({ segments: s.segments.map(seg => seg.id === id ? { ...seg, ...u } : seg) })),
 }));
 
 export default useCourseStore;
