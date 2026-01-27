@@ -50,14 +50,6 @@ const SegmentList = () => {
           >
             Simulate
           </button>
-          {simulationResult && (
-            <button 
-                onClick={exportJson}
-                className="bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded font-bold transition-colors shadow-sm"
-            >
-                JSON
-            </button>
-          )}
         </div>
       </div>
       

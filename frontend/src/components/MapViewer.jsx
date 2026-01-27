@@ -97,7 +97,12 @@ const MapViewer = () => {
         },
         getPolygonOffset: ({layerIndex}) => [0, -1000],
         onHover: info => setHoveredDist(info.object?.dist_m || null),
-        onClick: info => info.object && toggleSegmentSelection(info.object.segmentId, info.srcEvent.shiftKey)
+        onClick: i => {
+            if (i.object && i.object.segmentId) {
+                const isShift = i.srcEvent ? i.srcEvent.shiftKey : false;
+                toggleSegmentSelection(i.object.segmentId, isShift);
+            }
+        },
       })
     ];
   }, [atomicSegments, segments, selectedSegmentIds, simulationResult]);

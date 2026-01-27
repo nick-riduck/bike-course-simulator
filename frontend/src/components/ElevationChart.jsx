@@ -72,7 +72,7 @@ const ElevationChart = () => {
     };
   }, [gpxData]);
 
-  // 2. Annotations
+  // 2. Annotations (DEFINED BEFORE OPTIONS)
   const annotations = useMemo(() => {
     if (!segments || segments.length === 0) return {};
     const elements = {};
@@ -116,7 +116,7 @@ const ElevationChart = () => {
     return elements;
   }, [segments, selectedSegmentIds, dragState]);
 
-  // 3. Options (Defined AFTER annotations)
+  // 3. Options (Uses annotations)
   const options = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -135,9 +135,12 @@ const ElevationChart = () => {
             const lines = [`Ele: ${ctx.parsed.y} m`];
             const pt = ctx.dataset.data[ctx.dataIndex];
             if (pt && pt.grade) lines.push(`Grade: ${pt.grade}%`);
+            
+            // Match simulation data using dist_km
             if (simulationResult && simulationResult.track_data) {
                 const distM = pt.original_dist_m || (ctx.parsed.x * 1000);
-                const trackPt = simulationResult.track_data.find(p => Math.abs(p.dist_m - distM) < 30); 
+                // track_data uses dist_km, so compare with distM/1000
+                const trackPt = simulationResult.track_data.find(p => Math.abs((p.dist_km * 1000) - distM) < 50); 
                 if (trackPt) {
                     lines.push(`Speed: ${trackPt.speed_kmh.toFixed(1)} km/h`);
                     lines.push(`Power: ${Math.round(trackPt.power)} W`);
@@ -150,7 +153,13 @@ const ElevationChart = () => {
       },
     },
     scales: {
-      x: { type: 'linear', grid: { display: false }, ticks: { color: '#666', callback: (v) => `${v}km` } },
+      x: {
+        type: 'linear',
+        grid: { display: false },
+        ticks: { color: '#666', callback: (v) => `${v}km` },
+        min: 0,
+        max: gpxData.length > 0 ? parseFloat((gpxData[gpxData.length-1].dist_m / 1000).toFixed(3)) : undefined
+      },
       y: { grid: { color: '#333' }, ticks: { color: '#666' } }
     },
     interaction: { mode: 'nearest', axis: 'x', intersect: false },
@@ -159,17 +168,14 @@ const ElevationChart = () => {
         if (activeElements.length > 0) {
             const idx = activeElements[0].index;
             const dsIdx = activeElements[0].datasetIndex;
-            // chartData might not be available in useMemo deps if we don't include it,
-            // but we can access it from context or pass it?
-            // Actually, onHover receives `chart` instance in context, but here it's prop.
-            // Safe access:
-            // But wait, `chartData` is in scope here.
-            // We need to add chartData to dependency array of this useMemo.
+            // Access point safely
+            // Note: chartData is dependency of this useMemo now? No, useMemo deps are [annotations, simulationResult, dragState]
+            // We need to access chartData inside here. But chartData is defined in outer scope.
+            // So we must include chartData in dependency array.
+            // Or better: attach this handler to the Line component prop directly, not inside options useMemo
         }
     }
-  }), [annotations, simulationResult, dragState]); // chartData needed? 
-  // Actually, onHover implementation needs chartData.
-  // Let's attach onHover handler OUTSIDE of useMemo to avoid dependency hell, or include chartData.
+  }), [annotations, simulationResult, dragState]); // chartData needs to be here if used
 
   // --- Manual Handlers ---
   const handleMouseDown = (e) => {

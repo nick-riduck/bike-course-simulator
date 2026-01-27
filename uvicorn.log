@@ -10,3 +10,19 @@ INFO:     127.0.0.1:63975 - "POST /simulate HTTP/1.1" 200 OK
 INFO:     127.0.0.1:49595 - "POST /upload_gpx HTTP/1.1" 200 OK
 Successfully updated simulation_result.json
 INFO:     127.0.0.1:49595 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59978 - "POST /upload_gpx HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60475 - "OPTIONS /simulate HTTP/1.1" 200 OK
+Successfully updated simulation_result.json
+INFO:     127.0.0.1:60475 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61453 - "POST /upload_gpx HTTP/1.1" 200 OK
+Successfully updated simulation_result.json
+INFO:     127.0.0.1:64391 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49190 - "POST /upload_gpx HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59516 - "OPTIONS /simulate HTTP/1.1" 200 OK
+Successfully updated simulation_result.json
+INFO:     127.0.0.1:59516 - "POST /simulate HTTP/1.1" 200 OK
+Successfully updated simulation_result.json
+INFO:     127.0.0.1:59536 - "POST /simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55734 - "POST /upload_gpx HTTP/1.1" 200 OK
+Successfully updated simulation_result.json
+INFO:     127.0.0.1:58728 - "POST /simulate HTTP/1.1" 200 OK
