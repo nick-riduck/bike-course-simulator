@@ -5,17 +5,13 @@ import SegmentList from './components/SegmentList'
 import useCourseStore from './stores/useCourseStore'
 
 function App() {
-  const { loadGpxFromXml, gpxData } = useCourseStore();
+  const { uploadGpx } = useCourseStore();
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      loadGpxFromXml(evt.target.result);
-    };
-    reader.readAsText(file);
+    if (file) {
+      uploadGpx(file);
+    }
   };
 
   return (

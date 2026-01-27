@@ -5,7 +5,6 @@ import { Map } from 'react-map-gl/maplibre';
 import useCourseStore from '../stores/useCourseStore';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-// --- Constants ---
 const INITIAL_VIEW_STATE = {
   longitude: 126.99,
   latitude: 37.55,
@@ -15,11 +14,11 @@ const INITIAL_VIEW_STATE = {
 };
 
 const MapViewer = () => {
-  const { gpxData, hoveredDist, segments, selectedSegmentIds } = useCourseStore();
+  const { gpxData, atomicSegments, segments, hoveredDist, setHoveredDist, selectedSegmentIds, toggleSegmentSelection, simulationResult } = useCourseStore();
+  
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   
   const Z_SCALE = 5.0;
-  const EPSILON = 0.0001; 
 
   // Recenter map when data is loaded
   useEffect(() => {
@@ -36,153 +35,82 @@ const MapViewer = () => {
   // Find hovered point coordinates for the indicator
   const hoveredPoint = useMemo(() => {
     if (hoveredDist === null || gpxData.length === 0) return null;
-    
-    let closest = gpxData[0];
-    let minDiff = Infinity;
-    
-    for (const p of gpxData) {
-      const diff = Math.abs(p.dist_m - hoveredDist);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = p;
-      }
-      if (diff > minDiff) break;
-    }
-    return closest;
+    // Fallback: use gpxData for hover indicator position (it's fine)
+    return gpxData.find(p => p.dist_m >= hoveredDist) || gpxData[gpxData.length-1];
   }, [hoveredDist, gpxData]);
 
-  // Helper: Shift a point along a bearing
-  const shiftPoint = (lon, lat, bearing, dist) => {
-    const R = 6378137;
-    const d = dist;
-    const brng = bearing * (Math.PI / 180);
-    const lat1 = lat * (Math.PI / 180);
-    const lon1 = lon * (Math.PI / 180);
-
-    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng));
-    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2));
-    
-    return [lon2 * (180 / Math.PI), lat2 * (180 / Math.PI)];
-  };
-
-  // Helper: Calculate bearing
-  const getBearing = (startLat, startLng, destLat, destLng) => {
-    const startLatRad = startLat * (Math.PI / 180);
-    const startLngRad = startLng * (Math.PI / 180);
-    const destLatRad = destLat * (Math.PI / 180);
-    const destLngRad = destLng * (Math.PI / 180);
-
-    const y = Math.sin(destLngRad - startLngRad) * Math.cos(destLatRad);
-    const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
-              Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(destLngRad - startLngRad);
-    const brng = Math.atan2(y, x);
-    return ((brng * 180) / Math.PI + 360) % 360;
-  };
-
-  // Generate 3D Curtain Wall synced with Segments
+  // Generate 3D Curtain Wall synced with Atomic Segments
   const curtainLayers = useMemo(() => {
-    if (gpxData.length < 2 || segments.length === 0) return [];
+    if (!atomicSegments || atomicSegments.length === 0) return [];
 
     const wallData = [];
-    const OFFSET_M = 15; // Shift distance
-    const shiftedPoints = [];
+    const EPSILON = 0.0001; // Tiny offset to give volume to vertical walls
 
-    // 1. Pre-calculate Shifted Vertices
-    for (let i = 0; i < gpxData.length; i++) {
-      const curr = gpxData[i];
-      let bearing;
+    atomicSegments.forEach((as, idx) => {
+      // Find User Segment for Color
+      const userSeg = segments.find(s => as.start_dist >= s.start_dist && as.end_dist <= s.end_dist);
+      const currentSeg = userSeg || segments[0]; 
+      
+      const isSelected = selectedSegmentIds.includes(currentSeg?.id);
 
-      if (i === 0) {
-        const next = gpxData[i + 1];
-        const b = getBearing(curr.lat, curr.lon, next.lat, next.lon);
-        bearing = b + 90;
-      } else if (i === gpxData.length - 1) {
-        const prev = gpxData[i - 1];
-        const b = getBearing(prev.lat, prev.lon, curr.lat, curr.lon);
-        bearing = b + 90;
-      } else {
-        const prev = gpxData[i - 1];
-        const next = gpxData[i + 1];
-        const b1 = getBearing(prev.lat, prev.lon, curr.lat, curr.lon);
-        const b2 = getBearing(curr.lat, curr.lon, next.lat, next.lon);
-        
-        let avgBearing = (b1 + b2) / 2;
-        if (Math.abs(b1 - b2) > 180) avgBearing += 180;
-        bearing = avgBearing + 90; 
-      }
-      const shifted = shiftPoint(curr.lon, curr.lat, bearing, OFFSET_M);
-      shiftedPoints.push(shifted);
-    }
-
-    // 2. Build Wall using Shifted Vertices
-    let segIdx = 0;
-    for (let i = 1; i < gpxData.length; i++) {
-      const p1 = gpxData[i - 1];
-      const p2 = gpxData[i];
-      const s1 = shiftedPoints[i - 1];
-      const s2 = shiftedPoints[i];
-      const dist = p2.dist_m;
-
-      // Find segment
-      while (segIdx < segments.length - 1 && dist > segments[segIdx].end_dist) {
-        segIdx++;
-      }
-      const currentSeg = segments[segIdx];
-      const isSelected = selectedSegmentIds.includes(currentSeg.id);
-
-      // Color logic with selection highlight
+      // Color Logic
       let color = [165, 214, 167]; 
-      if (isSelected) color = [255, 215, 0]; // Gold for selection
-      else if (currentSeg.type === 'UP') color = [244, 67, 54]; 
-      else if (currentSeg.type === 'DOWN') color = [0, 172, 193]; 
+      if (isSelected) color = [255, 215, 0]; 
+      else if (currentSeg?.type === 'UP') color = [244, 67, 54]; 
+      else if (currentSeg?.type === 'DOWN') color = [0, 172, 193]; 
 
-      const bl = [s1[0], s1[1], 0];
-      const br = [s2[0], s2[1], 0];
-      const tr = [s2[0] + EPSILON, s2[1] + EPSILON, p2.ele * Z_SCALE];
-      const tl = [s1[0] + EPSILON, s1[1] + EPSILON, p1.ele * Z_SCALE];
+      // Build Polygon using Shifted Coordinates from Backend
+      // Apply tiny EPSILON to top points to prevent zero-area culling of vertical walls
+      const bl = [as.shifted_start_lon, as.shifted_start_lat, 0];
+      const br = [as.shifted_end_lon, as.shifted_end_lat, 0];
+      const tr = [as.shifted_end_lon + EPSILON, as.shifted_end_lat + EPSILON, as.end_ele * Z_SCALE];
+      const tl = [as.shifted_start_lon + EPSILON, as.shifted_start_lat + EPSILON, as.start_ele * Z_SCALE];
 
-      wallData.push({ polygon: [bl, br, tr], color });
-      wallData.push({ polygon: [bl, tr, tl], color });
-    }
+      // Metadata for Tooltip
+      const simStats = simulationResult?.track_data?.[idx] || null;
+
+      wallData.push({
+          polygon: [bl, br, tr, tl], // Bottom-Left -> Bottom-Right -> Top-Left -> Top-Right
+          color,
+          segmentId: currentSeg?.id,
+          dist_m: as.end_dist, // For hover sync
+          stats: simStats,
+          grade: as.avg_grade
+      });
+    });
 
     return [
       new PolygonLayer({
-        id: 'curtain-wall-real',
+        id: `curtain-wall-atomic-${atomicSegments.length}`,
         data: wallData,
         pickable: true,
         stroked: false,
         filled: true,
-        extruded: false,
+        extruded: false, // We provide explicit Z coordinates
         getPolygon: d => d.polygon,
         getFillColor: d => [...d.color, 255],
         parameters: {
-          cull: false,
+          cull: false, // Draw double-sided
           depthTest: true
         },
-        getPolygonOffset: ({layerIndex}) => [0, -1000]
+        getPolygonOffset: ({layerIndex}) => [0, -1000],
+        onHover: info => setHoveredDist(info.object?.dist_m || null),
+        onClick: info => info.object && toggleSegmentSelection(info.object.segmentId, info.srcEvent.shiftKey)
       })
     ];
-  }, [gpxData, segments, selectedSegmentIds]);
+  }, [atomicSegments, segments, selectedSegmentIds, simulationResult]);
 
-  const layers = [
-    ...curtainLayers,
-    // Hover Column Indicator (Restored)
-    ...(hoveredPoint ? [
-      new ColumnLayer({
-        id: 'hover-column',
-        data: [hoveredPoint],
-        getPosition: d => [d.lon, d.lat],
-        getFillColor: [192, 38, 211, 255], // Brighter Neon Purple
-        getElevation: d => d.ele * Z_SCALE * 1.5 + 1000, 
-        elevationScale: 1,
-        radius: 100, // Massive radius for visibility
-        extruded: true,
-        pickable: false,
-        material: false,
-        getPolygonOffset: ({layerIndex}) => [0, -5000]
-      })
-    ] : [])
-  ];
+  const getTooltip = ({object}) => {
+    if (!object) return null;
+    const { stats, grade, dist_m } = object;
+    
+    let content = `Grade: ${grade?.toFixed(1) || 0}%\nDist: ${(dist_m/1000).toFixed(2)}km`;
+    
+    if (stats) {
+        content += `\n\n-- Simulation --\nPower: ${Math.round(stats.power)}W\nSpeed: ${stats.speed_kmh.toFixed(1)}km/h\nTime: ${Math.floor(stats.time_sec/60)}m ${Math.floor(stats.time_sec%60)}s`;
+    }
+    return content;
+  };
 
   return (
     <div className="relative w-full h-[600px] rounded-xl overflow-hidden border border-gray-700 shadow-2xl bg-[#121212]">
@@ -194,25 +122,36 @@ const MapViewer = () => {
           scrollZoom: true,
           doubleClickZoom: true,
           touchRotate: true,
-          maxPitch: 85, // Allowed to tilt almost flat
+          maxPitch: 85,
           minPitch: 0
         }}
-        layers={layers}
-        getTooltip={({object}) => object && `Grade: ${object.grade_pct?.toFixed(1) || 'N/A'}%`}
+        layers={[...curtainLayers, ...(hoveredPoint ? [new ColumnLayer({
+            id: 'hover-column',
+            data: [hoveredPoint],
+            getPosition: d => [d.lon, d.lat],
+            getFillColor: [192, 38, 211, 255],
+            getElevation: d => d.ele * Z_SCALE + 1000, 
+            elevationScale: 1,
+            radius: 100, 
+            extruded: true,
+            pickable: false,
+            material: false
+          })] : [])]}
+        getTooltip={getTooltip}
         style={{position: 'absolute', top: 0, left: 0}}
       >
         <Map
           viewState={viewState}
-          maxPitch={85} // Match DeckGL pitch limit
+          maxPitch={85}
           mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
           reuseMaps
         />
       </DeckGL>
       
-      <div className="absolute top-4 left-4 bg-riduck-card/80 backdrop-blur-md p-4 rounded-lg border border-gray-600 pointer-events-none z-10">
-        <h3 className="text-riduck-primary font-bold text-lg">3D Course View</h3>
+      <div className="absolute top-4 left-4 bg-[#1E1E1E]/80 backdrop-blur-md p-4 rounded-lg border border-gray-600 pointer-events-none z-10">
+        <h3 className="text-[#2a9e92] font-bold text-lg">3D Course View</h3>
         <p className="text-xs text-gray-400">
-          {gpxData.length > 0 ? "Course Data Loaded" : "Waiting for GPX upload..."}
+          {atomicSegments.length > 0 ? "Course Data Loaded" : "Waiting for GPX upload..."}
         </p>
       </div>
     </div>

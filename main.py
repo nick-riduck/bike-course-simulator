@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -51,6 +51,57 @@ class SimulationRequest(BaseModel):
 def read_root():
     return {"status": "Bike Course Simulator API is running"}
 
+@app.post("/upload_gpx")
+async def upload_gpx(file: UploadFile = File(...)):
+    """
+    Parse GPX file and perform initial segmentation (Atomic Segments).
+    Source of Truth for segmentation logic.
+    """
+    try:
+        content = await file.read()
+        gpx_str = content.decode("utf-8")
+        
+        temp_filename = f"temp_{file.filename}"
+        with open(temp_filename, "w") as f:
+            f.write(gpx_str)
+            
+        loader = GpxLoader(temp_filename)
+        loader.load()
+        
+        # Generate Atomic Segments (Physics Resolution)
+        # grade 0.5%, 200m max length
+        atomic_segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
+        
+        os.remove(temp_filename)
+        
+        return {
+            "points": [
+                {"lat": p.lat, "lon": p.lon, "ele": p.ele, "dist_m": p.distance_from_start}
+                for p in loader.points
+            ],
+            "atomic_segments": [
+                {
+                    "start_dist": s.start_dist,
+                    "end_dist": s.end_dist,
+                    "avg_grade": s.grade * 100, 
+                    "start_ele": s.start_ele,
+                    "end_ele": s.end_ele,
+                    "start_lat": s.start_lat,
+                    "start_lon": s.start_lon,
+                    "end_lat": s.lat,
+                    "end_lon": s.lon,
+                    "shifted_start_lat": s.shifted_start_lat,
+                    "shifted_start_lon": s.shifted_start_lon,
+                    "shifted_end_lat": s.shifted_end_lat,
+                    "shifted_end_lon": s.shifted_end_lon
+                }
+                for s in atomic_segments
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/simulate")
 def run_simulation(req: SimulationRequest):
     if not req.points:
@@ -68,10 +119,9 @@ def run_simulation(req: SimulationRequest):
         for p in req.points
     ]
     
-    # High-res segmentation for physics
+    # 3. Use User Segments directly?
     physics_segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
 
-    # 3. Map User Target Power
     for p_seg in physics_segments:
         mid_dist = (p_seg.start_dist + p_seg.end_dist) / 2
         target_power = req.rider.ftp * 0.7 
@@ -84,7 +134,6 @@ def run_simulation(req: SimulationRequest):
     # 4. Run Simulation
     result = simulate_with_custom_power(engine, physics_segments)
     
-    # [CRITICAL] Save to simulation_result.json on disk
     try:
         with open("simulation_result.json", "w") as f:
             json.dump(result, f, indent=2)
@@ -107,7 +156,6 @@ def simulate_with_custom_power(engine: PhysicsEngine, segments: List[Segment]):
     prev_heading = segments[0].heading if segments else 0
 
     for seg in segments:
-        # Cornering
         heading_change = abs(seg.heading - prev_heading)
         if heading_change > 180: heading_change = 360 - heading_change
         if seg.length > 0 and heading_change > 1.0:
