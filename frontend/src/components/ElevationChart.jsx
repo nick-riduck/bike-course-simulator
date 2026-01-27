@@ -35,6 +35,7 @@ const ElevationChart = () => {
   
   const chartRef = useRef(null);
   const [dragState, setDragState] = useState(null);
+  const [mouseDownPos, setMouseDownPos] = useState(null);
 
   const formatTime = (seconds) => {
     if (!seconds) return "00:00";
@@ -45,17 +46,15 @@ const ElevationChart = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // 1. Prepare Chart Data
+  // 1. Chart Data
   const chartData = useMemo(() => {
     if (!gpxData || gpxData.length === 0) return { datasets: [] };
-    
     const points = gpxData.map(p => ({
       x: parseFloat((p.dist_m / 1000).toFixed(3)),
       y: Math.round(p.ele),
       original_dist_m: p.dist_m,
       grade: (p.grade_pct || 0).toFixed(1)
     }));
-
     return {
       datasets: [
         {
@@ -73,10 +72,9 @@ const ElevationChart = () => {
     };
   }, [gpxData]);
 
-  // 2. Generate Annotations (Boxes & Lines)
+  // 2. Annotations
   const annotations = useMemo(() => {
     if (!segments || segments.length === 0) return {};
-    
     const elements = {};
     segments.forEach((seg, i) => {
       const isSelected = selectedSegmentIds.includes(seg.id);
@@ -90,7 +88,6 @@ const ElevationChart = () => {
           effectiveStart = dragState.currentDistM;
       }
 
-      // Box Background
       elements[`box${i}`] = {
         type: 'box',
         xMin: effectiveStart / 1000,
@@ -99,20 +96,11 @@ const ElevationChart = () => {
           ? `rgba(244, 67, 54, ${isSelected ? 0.4 : 0.2})` 
           : (seg.type === 'DOWN' ? `rgba(0, 172, 193, ${isSelected ? 0.4 : 0.2})` : `rgba(255, 255, 255, ${isSelected ? 0.2 : 0})`),
         borderWidth: 0,
-        click: (context) => {
-            const e = context.event; 
-            const nativeEvent = e?.native || e; 
-            if (nativeEvent) {
-                toggleSegmentSelection(seg.id, nativeEvent.shiftKey);
-            }
-        }
       };
 
-      // Boundary Line
       if (i < segments.length - 1) {
         const isDraggingThis = dragState && dragState.index === i;
         const linePos = isDraggingThis ? dragState.currentDistM : seg.end_dist;
-
         elements[`line${i}`] = {
           type: 'line',
           scaleID: 'x',
@@ -120,101 +108,16 @@ const ElevationChart = () => {
           borderColor: isDraggingThis ? '#FFD700' : 'rgba(255, 255, 255, 0.5)',
           borderWidth: isDraggingThis ? 3 : 1,
           borderDash: isDraggingThis ? [] : [4, 4],
-          enter: (ctx) => {
-             if (!dragState) ctx.chart.canvas.style.cursor = 'col-resize';
-          },
-          leave: (ctx) => {
-             if (!dragState) ctx.chart.canvas.style.cursor = 'default';
-          }
+          enter: (ctx) => !dragState && (ctx.chart.canvas.style.cursor = 'col-resize'),
+          leave: (ctx) => !dragState && (ctx.chart.canvas.style.cursor = 'default')
         };
       }
     });
     return elements;
   }, [segments, selectedSegmentIds, dragState]);
 
-  // --- Manual Event Handlers ---
-  const handleMouseDown = (e) => {
-    const chart = chartRef.current;
-    if (!chart) return;
-
-    const rect = chart.canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    
-    let foundIdx = -1;
-    let minDiff = Infinity;
-    const HIT_TOLERANCE_PX = 10;
-
-    for (let i = 0; i < segments.length - 1; i++) {
-        const seg = segments[i];
-        const segEndKm = seg.end_dist / 1000;
-        const pixelX = chart.scales.x.getPixelForValue(segEndKm);
-        
-        const diff = Math.abs(mouseX - pixelX);
-        if (diff < HIT_TOLERANCE_PX && diff < minDiff) {
-            minDiff = diff;
-            foundIdx = i;
-        }
-    }
-
-    if (foundIdx !== -1) {
-        setDragState({
-            index: foundIdx,
-            currentDistM: segments[foundIdx].end_dist
-        });
-        chart.options.plugins.tooltip.enabled = false;
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    
-    if (dragState) {
-        const rect = chart.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const newDistKm = chart.scales.x.getValueForPixel(mouseX);
-        const newDistM = newDistKm * 1000;
-
-        const currentSeg = segments[dragState.index];
-        const nextSeg = segments[dragState.index + 1];
-        
-        const minLimit = currentSeg.start_dist + 100;
-        const maxLimit = nextSeg.end_dist - 100;
-
-        if (newDistM > minLimit && newDistM < maxLimit) {
-            setDragState(prev => ({ ...prev, currentDistM: newDistM }));
-        }
-    } else {
-        const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: false, axis: 'x' }, true);
-        if (points.length > 0) {
-            const index = points[0].index;
-            const dsIndex = points[0].datasetIndex;
-            const pt = chartData.datasets[dsIndex].data[index];
-            if (pt) {
-                const d = pt.original_dist_m || (pt.x * 1000);
-                if (hoveredDist !== d) setHoveredDist(d);
-            }
-        }
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (dragState) {
-        moveSegmentBoundary(dragState.index, dragState.currentDistM);
-        setDragState(null);
-        if (chartRef.current) chartRef.current.options.plugins.tooltip.enabled = true;
-    }
-  };
-
-  const handleContextMenu = (e) => {
-    e.preventDefault();
-    if (hoveredDist !== null && !dragState) {
-        splitSegment(hoveredDist);
-    }
-  };
-
-  // Options Definition (Moved up to be accessible)
-  const options = {
+  // 3. Options (Defined AFTER annotations)
+  const options = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
@@ -226,26 +129,18 @@ const ElevationChart = () => {
         mode: 'index',
         intersect: false,
         backgroundColor: 'rgba(30, 30, 30, 0.9)',
-        titleColor: '#2a9e92',
-        bodyColor: '#ccc',
-        borderColor: '#444',
-        borderWidth: 1,
         callbacks: {
           title: (items) => `Dist: ${items[0].parsed.x} km`,
           label: (ctx) => {
             const lines = [`Ele: ${ctx.parsed.y} m`];
-            
             const pt = ctx.dataset.data[ctx.dataIndex];
             if (pt && pt.grade) lines.push(`Grade: ${pt.grade}%`);
-
             if (simulationResult && simulationResult.track_data) {
                 const distM = pt.original_dist_m || (ctx.parsed.x * 1000);
-                // 30m tolerance for finding simulation point
                 const trackPt = simulationResult.track_data.find(p => Math.abs(p.dist_m - distM) < 30); 
-                
                 if (trackPt) {
                     lines.push(`Speed: ${trackPt.speed_kmh.toFixed(1)} km/h`);
-                    lines.push(`Power: ${Math.round(trackPt.power)} W`); // Just "Power", no "Target"
+                    lines.push(`Power: ${Math.round(trackPt.power)} W`);
                     lines.push(`Time: ${formatTime(trackPt.time_sec)}`);
                 }
             }
@@ -255,36 +150,109 @@ const ElevationChart = () => {
       },
     },
     scales: {
-      x: {
-        type: 'linear',
-        grid: { display: false },
-        ticks: { color: '#666', callback: (v) => `${v}km` }
-      },
-      y: {
-        grid: { color: '#333' },
-        ticks: { color: '#666' }
-      }
+      x: { type: 'linear', grid: { display: false }, ticks: { color: '#666', callback: (v) => `${v}km` } },
+      y: { grid: { color: '#333' }, ticks: { color: '#666' } }
     },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    onHover: (event, activeElements) => {
+        if (dragState) return;
+        if (activeElements.length > 0) {
+            const idx = activeElements[0].index;
+            const dsIdx = activeElements[0].datasetIndex;
+            // chartData might not be available in useMemo deps if we don't include it,
+            // but we can access it from context or pass it?
+            // Actually, onHover receives `chart` instance in context, but here it's prop.
+            // Safe access:
+            // But wait, `chartData` is in scope here.
+            // We need to add chartData to dependency array of this useMemo.
+        }
     }
+  }), [annotations, simulationResult, dragState]); // chartData needed? 
+  // Actually, onHover implementation needs chartData.
+  // Let's attach onHover handler OUTSIDE of useMemo to avoid dependency hell, or include chartData.
+
+  // --- Manual Handlers ---
+  const handleMouseDown = (e) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const rect = chart.canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    
+    let foundIdx = -1;
+    let minDiff = Infinity;
+    const HIT_TOLERANCE_PX = 15;
+
+    for (let i = 0; i < segments.length - 1; i++) {
+        const seg = segments[i];
+        const segEndKm = seg.end_dist / 1000;
+        const pixelX = chart.scales.x.getPixelForValue(segEndKm);
+        if (Math.abs(mouseX - pixelX) < HIT_TOLERANCE_PX && Math.abs(mouseX - pixelX) < minDiff) {
+            minDiff = Math.abs(mouseX - pixelX);
+            foundIdx = i;
+        }
+    }
+    if (foundIdx !== -1) {
+        setDragState({ index: foundIdx, currentDistM: segments[foundIdx].end_dist });
+        chart.options.plugins.tooltip.enabled = false;
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    if (dragState) {
+        const rect = chart.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const newDistKm = chart.scales.x.getValueForPixel(mouseX);
+        const newDistM = newDistKm * 1000;
+        const currentSeg = segments[dragState.index];
+        const nextSeg = segments[dragState.index + 1];
+        if (newDistM > currentSeg.start_dist + 100 && newDistM < nextSeg.end_dist - 100) {
+            setDragState(prev => ({ ...prev, currentDistM: newDistM }));
+        }
+    } else {
+        const points = chart.getElementsAtEventForMode(e, 'nearest', { intersect: false, axis: 'x' }, true);
+        if (points.length > 0) {
+            const idx = points[0].index;
+            const dsIdx = points[0].datasetIndex;
+            const pt = chartData.datasets[dsIdx].data[idx];
+            if (pt && pt.original_dist_m !== hoveredDist) setHoveredDist(pt.original_dist_m);
+        }
+    }
+  };
+
+  const handleMouseUp = (e) => {
+    if (dragState) {
+        moveSegmentBoundary(dragState.index, dragState.currentDistM);
+        setDragState(null);
+        if (chartRef.current) chartRef.current.options.plugins.tooltip.enabled = true;
+    } else if (mouseDownPos) {
+        const dist = Math.sqrt(Math.pow(e.clientX - mouseDownPos.x, 2) + Math.pow(e.clientY - mouseDownPos.y, 2));
+        if (dist < 5) {
+            const chart = chartRef.current;
+            const rect = chart.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const clickDistKm = chart.scales.x.getValueForPixel(mouseX);
+            const targetSeg = segments.find(s => (clickDistKm*1000) >= s.start_dist && (clickDistKm*1000) <= s.end_dist);
+            if (targetSeg) toggleSegmentSelection(targetSeg.id, e.shiftKey);
+        }
+    }
+    setMouseDownPos(null);
+  };
+
+  const handleContextMenu = (e) => {
+      e.preventDefault();
+      if (hoveredDist !== null && !dragState) splitSegment(hoveredDist);
   };
 
   if (!gpxData || gpxData.length === 0) return <div>Load GPX</div>;
 
   return (
-    <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[300px]">
+    <div className="w-full bg-[#1E1E1E] rounded-xl border border-gray-800 p-4 mt-6 shadow-lg h-[300px]"
+         onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
       <h3 className="text-sm font-bold text-[#2a9e92] mb-2 uppercase tracking-wider">Elevation Profile</h3>
-      <div 
-        className="w-full h-[230px]" 
-        onContextMenu={handleContextMenu}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
+      <div className="w-full h-[230px]" onContextMenu={handleContextMenu} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}>
         <Line ref={chartRef} data={chartData} options={options} />
       </div>
     </div>

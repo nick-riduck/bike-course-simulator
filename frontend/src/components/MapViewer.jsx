@@ -47,8 +47,9 @@ const MapViewer = () => {
     const EPSILON = 0.0001; // Tiny offset to give volume to vertical walls
 
     atomicSegments.forEach((as, idx) => {
-      // Find User Segment for Color
-      const userSeg = segments.find(s => as.start_dist >= s.start_dist && as.end_dist <= s.end_dist);
+      // Match with User Segment for color using Midpoint
+      const midDist = (as.start_dist + as.end_dist) / 2;
+      const userSeg = segments.find(s => midDist >= s.start_dist && midDist < s.end_dist);
       const currentSeg = userSeg || segments[0]; 
       
       const isSelected = selectedSegmentIds.includes(currentSeg?.id);
