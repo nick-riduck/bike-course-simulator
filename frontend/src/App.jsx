@@ -33,19 +33,15 @@ function App() {
         </div>
       </header>
       
-      <main className="w-full max-w-[1600px] grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-160px)]">
-        {/* Left Section: 3D Map & Elevation (Span 3) */}
-        <div className="lg:col-span-3 flex flex-col gap-4 overflow-hidden">
-          <div className="flex-1 min-h-0">
-            <MapViewer />
-          </div>
-          <div className="h-fit">
-            <ElevationChart />
-          </div>
+      <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
+        {/* Left Side: Map & Chart (3/4 space) */}
+        <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
+          <MapViewer />
+          <ElevationChart />
         </div>
 
-        {/* Right Section: Segment List (Span 1) */}
-        <div className="lg:col-span-1 h-full overflow-hidden">
+        {/* Right Side: Segment List (1/4 space) */}
+        <div className="lg:col-span-4 xl:col-span-3 h-[900px]">
           <SegmentList />
         </div>
       </main>

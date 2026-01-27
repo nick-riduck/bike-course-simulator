@@ -30,11 +30,20 @@ const ElevationChart = () => {
   const { 
     gpxData, hoveredDist, setHoveredDist, 
     segments, selectedSegmentIds, toggleSegmentSelection, 
-    splitSegment, moveSegmentBoundary 
+    splitSegment, moveSegmentBoundary, simulationResult 
   } = useCourseStore();
   
   const chartRef = useRef(null);
   const [dragState, setDragState] = useState(null);
+
+  const formatTime = (seconds) => {
+    if (!seconds) return "00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   // 1. Prepare Chart Data
   const chartData = useMemo(() => {
@@ -90,20 +99,16 @@ const ElevationChart = () => {
           ? `rgba(244, 67, 54, ${isSelected ? 0.4 : 0.2})` 
           : (seg.type === 'DOWN' ? `rgba(0, 172, 193, ${isSelected ? 0.4 : 0.2})` : `rgba(255, 255, 255, ${isSelected ? 0.2 : 0})`),
         borderWidth: 0,
-        // Safe click handler for selection
         click: (context) => {
-            // Chart.js annotation plugin passes context which contains the event
-            // Access logic: context.chart.canvas... or context.event
-            // Sometimes context.event is the wrapper.
             const e = context.event; 
-            const nativeEvent = e?.native || e; // Fallback
+            const nativeEvent = e?.native || e; 
             if (nativeEvent) {
                 toggleSegmentSelection(seg.id, nativeEvent.shiftKey);
             }
         }
       };
 
-      // Boundary Line (Draggable)
+      // Boundary Line
       if (i < segments.length - 1) {
         const isDraggingThis = dragState && dragState.index === i;
         const linePos = isDraggingThis ? dragState.currentDistM : seg.end_dist;
@@ -126,43 +131,6 @@ const ElevationChart = () => {
     });
     return elements;
   }, [segments, selectedSegmentIds, dragState]);
-
-  // Options Definition
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    plugins: {
-      legend: { display: false },
-      annotation: { annotations },
-      tooltip: {
-        enabled: true,
-        mode: 'index',
-        intersect: false,
-        backgroundColor: '#1E1E1E',
-        callbacks: {
-          label: (ctx) => `Ele: ${ctx.parsed.y}m`,
-          title: (items) => `Dist: ${items[0].parsed.x}km`,
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'linear',
-        grid: { display: false },
-        ticks: { color: '#666', callback: (v) => `${v}km` }
-      },
-      y: {
-        grid: { color: '#333' },
-        ticks: { color: '#666' }
-      }
-    },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
-    }
-  };
 
   // --- Manual Event Handlers ---
   const handleMouseDown = (e) => {
@@ -242,6 +210,65 @@ const ElevationChart = () => {
     e.preventDefault();
     if (hoveredDist !== null && !dragState) {
         splitSegment(hoveredDist);
+    }
+  };
+
+  // Options Definition (Moved up to be accessible)
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: {
+      legend: { display: false },
+      annotation: { annotations },
+      tooltip: {
+        enabled: true,
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(30, 30, 30, 0.9)',
+        titleColor: '#2a9e92',
+        bodyColor: '#ccc',
+        borderColor: '#444',
+        borderWidth: 1,
+        callbacks: {
+          title: (items) => `Dist: ${items[0].parsed.x} km`,
+          label: (ctx) => {
+            const lines = [`Ele: ${ctx.parsed.y} m`];
+            
+            const pt = ctx.dataset.data[ctx.dataIndex];
+            if (pt && pt.grade) lines.push(`Grade: ${pt.grade}%`);
+
+            if (simulationResult && simulationResult.track_data) {
+                const distM = pt.original_dist_m || (ctx.parsed.x * 1000);
+                // 30m tolerance for finding simulation point
+                const trackPt = simulationResult.track_data.find(p => Math.abs(p.dist_m - distM) < 30); 
+                
+                if (trackPt) {
+                    lines.push(`Speed: ${trackPt.speed_kmh.toFixed(1)} km/h`);
+                    lines.push(`Power: ${Math.round(trackPt.power)} W`); // Just "Power", no "Target"
+                    lines.push(`Time: ${formatTime(trackPt.time_sec)}`);
+                }
+            }
+            return lines;
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        grid: { display: false },
+        ticks: { color: '#666', callback: (v) => `${v}km` }
+      },
+      y: {
+        grid: { color: '#333' },
+        ticks: { color: '#666' }
+      }
+    },
+    interaction: {
+      mode: 'nearest',
+      axis: 'x',
+      intersect: false
     }
   };
 
