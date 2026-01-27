@@ -69,48 +69,115 @@ const useCourseStore = create((set, get) => ({
       });
 
       // data.points, data.atomic_segments
-      set({ gpxData: pointsWithGrade, atomicSegments: data.atomic_segments });
+      set({ gpxData: data.points, atomicSegments: data.atomic_segments });
 
-      // Initial Clustering (1 User Segment per Type change)
-      const initialUserSegments = [];
-      let currentGroup = [];
+      // --- Advanced Clustering Logic ---
       
-      data.atomic_segments.forEach((as, idx) => {
-          const type = as.avg_grade > 3.5 ? 'UP' : (as.avg_grade < -3.5 ? 'DOWN' : 'FLAT');
-          if (currentGroup.length === 0 || currentGroup[0].type === type) {
-              currentGroup.push({ ...as, type });
-          } else {
-              // Commit Group
-              const first = currentGroup[0];
-              const last = currentGroup[currentGroup.length - 1];
-              initialUserSegments.push({
-                  id: initialUserSegments.length + 1,
-                  start_dist: first.start_dist,
-                  end_dist: last.end_dist,
-                  type: first.type,
-                  avg_grade: get()._getStatsForRange(first.start_dist, last.end_dist).avg_grade,
-                  name: `Segment ${initialUserSegments.length + 1}`,
-                  target_power: first.type === 'UP' ? 270 : 200
-              });
-              currentGroup = [{ ...as, type }];
+      // 1. Assign Initial Types
+      let workSegments = data.atomic_segments.map(as => ({
+          ...as,
+          type: as.avg_grade > 3.5 ? 'UP' : (as.avg_grade < -3.5 ? 'DOWN' : 'FLAT'),
+          length: as.end_dist - as.start_dist
+      }));
+
+      // 2. Pass 1: Sandwich Smoothing (Noise Reduction)
+      // Look for patterns like A-B-A where B is short and weak
+      for (let i = 1; i < workSegments.length - 1; i++) {
+          const prev = workSegments[i-1];
+          const curr = workSegments[i];
+          const next = workSegments[i+1];
+
+          if (prev.type === next.type && curr.type !== prev.type) {
+              // Condition: Short length AND grade isn't too extreme compared to neighbors
+              // e.g. UP(5%) - FLAT(1%) - UP(6%) -> Merge
+              // e.g. UP(5%) - DOWN(-10%) - UP(6%) -> Keep (Extreme change)
+              
+              const isShort = curr.length < 500; // 500m threshold
+              const gradeDiff = Math.abs(curr.avg_grade - prev.avg_grade);
+              const isWeak = gradeDiff < 5.0; // If grade change is within 5%, it's noise
+
+              if (isShort && isWeak) {
+                  curr.type = prev.type; // Absorb into the group
+              }
           }
-      });
-      // Last one
-      if (currentGroup.length > 0) {
-          const first = currentGroup[0];
-          const last = currentGroup[currentGroup.length - 1];
-          initialUserSegments.push({
-              id: initialUserSegments.length + 1,
-              start_dist: first.start_dist,
-              end_dist: last.end_dist,
-              type: first.type,
-              avg_grade: get()._getStatsForRange(first.start_dist, last.end_dist).avg_grade,
-              name: `Segment ${initialUserSegments.length + 1}`,
-              target_power: first.type === 'UP' ? 270 : 200
+      }
+
+      // 3. Explicit Clustering (Merge same adjacent types)
+      const clusteredSegments = [];
+      if (workSegments.length > 0) {
+          let currentGroupStart = workSegments[0].start_dist;
+          let currentType = workSegments[0].type;
+          
+          for (let i = 1; i < workSegments.length; i++) {
+              const ws = workSegments[i];
+              if (ws.type !== currentType) {
+                  // Commit current group
+                  const prevEnd = workSegments[i-1].end_dist;
+                  const stats = get()._getStatsForRange(currentGroupStart, prevEnd);
+                  
+                  clusteredSegments.push({
+                      id: 0, // Temp ID
+                      start_dist: currentGroupStart,
+                      end_dist: prevEnd,
+                      type: currentType,
+                      avg_grade: stats.avg_grade,
+                      target_power: currentType === 'UP' ? 270 : 200
+                  });
+                  
+                  // Start new group
+                  currentGroupStart = ws.start_dist;
+                  currentType = ws.type;
+              }
+          }
+          // Commit last group
+          const lastEnd = workSegments[workSegments.length - 1].end_dist;
+          const stats = get()._getStatsForRange(currentGroupStart, lastEnd);
+          clusteredSegments.push({
+              id: 0,
+              start_dist: currentGroupStart,
+              end_dist: lastEnd,
+              type: currentType,
+              avg_grade: stats.avg_grade,
+              target_power: currentType === 'UP' ? 270 : 200
           });
       }
 
-      set({ segments: initialUserSegments, simulationResult: null });
+      // 4. Pass 2: Aggressive Smoothing (Grade Diff < 2%)
+      let mergedSegments = [...clusteredSegments];
+      let changed = true;
+      
+      while (changed) {
+          changed = false;
+          const nextPass = [];
+          if (mergedSegments.length === 0) break;
+          
+          let current = mergedSegments[0];
+          
+          for (let i = 1; i < mergedSegments.length; i++) {
+              const next = mergedSegments[i];
+              const gradeDiff = Math.abs(current.avg_grade - next.avg_grade);
+              const isShort = (current.end_dist - current.start_dist) < 300 || (next.end_dist - next.start_dist) < 300;
+              
+              // Merge if same type OR similar grade OR noise
+              if (current.type === next.type || gradeDiff < 2.0 || isShort) {
+                  current.end_dist = next.end_dist;
+                  const stats = get()._getStatsForRange(current.start_dist, current.end_dist);
+                  current.avg_grade = stats.avg_grade;
+                  current.type = stats.type; // Update type based on new average
+                  changed = true;
+              } else {
+                  nextPass.push(current);
+                  current = next;
+              }
+          }
+          nextPass.push(current);
+          mergedSegments = nextPass;
+      }
+      
+      // Re-index IDs
+      const finalUserSegments = mergedSegments.map((s, idx) => ({ ...s, id: idx + 1, name: `Segment ${idx + 1}` }));
+
+      set({ segments: finalUserSegments, simulationResult: null });
     } catch (error) {
       console.error("GPX Upload Error:", error);
     }

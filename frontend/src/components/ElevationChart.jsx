@@ -53,7 +53,7 @@ const ElevationChart = () => {
       x: parseFloat((p.dist_m / 1000).toFixed(3)),
       y: Math.round(p.ele),
       original_dist_m: p.dist_m,
-      grade: p.grade_pct.toFixed(1)
+      grade: (p.grade_pct || 0).toFixed(1)
     }));
 
     return {
