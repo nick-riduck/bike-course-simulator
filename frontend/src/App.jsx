@@ -2,6 +2,7 @@ import React from 'react'
 import MapViewer from './components/MapViewer'
 import ElevationChart from './components/ElevationChart'
 import SegmentList from './components/SegmentList'
+import RiderSettings from './components/RiderSettings'
 import useCourseStore from './stores/useCourseStore'
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
       <main className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
         {/* Left Side: Map & Chart (3/4 space) */}
         <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
+          <RiderSettings />
           <MapViewer />
           <ElevationChart />
         </div>

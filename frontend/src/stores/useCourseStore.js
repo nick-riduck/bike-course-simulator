@@ -47,9 +47,21 @@ const useCourseStore = create((set, get) => ({
     return {
         riderProfile: {
             ...preset,
-            bike_weight: 8.5 
+            pdc: { ...preset.pdc }, // Deep copy to protect preset data
+            bike_weight: preset.bike_weight !== undefined ? preset.bike_weight : 8.5 
         }
     };
+  }),
+
+  updatePdcValue: (duration, power) => set((state) => {
+    const newPdc = { ...state.riderProfile.pdc, [duration]: power };
+    return { riderProfile: { ...state.riderProfile, pdc: newPdc } };
+  }),
+
+  deletePdcValue: (duration) => set((state) => {
+    const newPdc = { ...state.riderProfile.pdc };
+    delete newPdc[duration];
+    return { riderProfile: { ...state.riderProfile, pdc: newPdc } };
   }),
 
   // Stats Aggregation (Needs Simulation Result)

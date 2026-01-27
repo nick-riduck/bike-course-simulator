@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import useCourseStore from '../stores/useCourseStore';
 
 const RiderSettings = () => {
-  const { riderProfile, updateRiderProfile, riderPresets, applyRiderPreset } = useCourseStore();
+  const { riderProfile, updateRiderProfile, riderPresets, applyRiderPreset, updatePdcValue, deletePdcValue } = useCourseStore();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Local state for adding new PDC values
+  const [newDuration, setNewDuration] = useState('');
+  const [newPower, setNewPower] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -13,6 +17,21 @@ const RiderSettings = () => {
   const handlePresetChange = (e) => {
     applyRiderPreset(e.target.value);
   };
+
+  const handlePdcChange = (duration, val) => {
+      updatePdcValue(duration, parseFloat(val));
+  };
+
+  const handleAddPdc = () => {
+      if (newDuration && newPower) {
+          updatePdcValue(newDuration, parseFloat(newPower));
+          setNewDuration('');
+          setNewPower('');
+      }
+  };
+
+  // Sort PDC keys for display
+  const sortedPdcKeys = Object.keys(riderProfile.pdc || {}).sort((a,b) => parseInt(a) - parseInt(b));
 
   return (
     <div className="bg-[#1E1E1E] rounded-xl border border-gray-800 shadow-lg p-4 mb-6">
@@ -84,14 +103,55 @@ const RiderSettings = () => {
           </div>
           
           <div className="md:col-span-4 mt-2 pt-2 border-t border-gray-800">
-            <label className="block text-gray-500 text-[10px] uppercase font-bold mb-2">Power Duration Curve (PDC)</label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-11 gap-2">
-                {Object.entries(riderProfile.pdc || {}).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).map(([sec, watt]) => (
-                    <div key={sec} className="bg-gray-900/50 p-2 rounded border border-gray-800 flex flex-col items-center">
-                        <span className="text-[9px] text-gray-500">{parseInt(sec) >= 60 ? `${parseInt(sec)/60}m` : `${sec}s`}</span>
-                        <span className="text-gray-300 font-bold text-xs">{watt}W</span>
+            <label className="block text-gray-500 text-[10px] uppercase font-bold mb-2">Power Duration Curve (Editable)</label>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                {sortedPdcKeys.map((sec) => (
+                    <div key={sec} className="bg-gray-900/50 p-2 rounded border border-gray-800 flex flex-col relative group">
+                        <button 
+                            onClick={() => deletePdcValue(sec)}
+                            className="absolute top-1 right-1 text-gray-600 hover:text-red-500 text-[10px] hidden group-hover:block"
+                            title="Remove"
+                        >
+                            ✕
+                        </button>
+                        <span className="text-[9px] text-gray-500 mb-1">{parseInt(sec) >= 60 ? `${(parseInt(sec)/60).toFixed(1).replace('.0','')}m (${sec}s)` : `${sec}s`}</span>
+                        <div className="flex items-center gap-1">
+                            <input 
+                                type="number" 
+                                value={riderProfile.pdc[sec]}
+                                onChange={(e) => handlePdcChange(sec, e.target.value)}
+                                className="w-full bg-transparent border-b border-gray-600 focus:border-[#2a9e92] text-xs text-white outline-none font-bold text-center"
+                            />
+                            <span className="text-[9px] text-gray-600">W</span>
+                        </div>
                     </div>
                 ))}
+                
+                {/* Add New PDC Entry */}
+                <div className="bg-gray-800/30 p-2 rounded border border-dashed border-gray-700 flex flex-col justify-center items-center gap-1">
+                    <div className="flex gap-1 w-full">
+                        <input 
+                            type="number" placeholder="Sec" 
+                            value={newDuration}
+                            onChange={e => setNewDuration(e.target.value)}
+                            className="w-1/2 bg-gray-900 rounded px-1 py-0.5 text-[10px] text-white outline-none border border-gray-700 focus:border-[#2a9e92]"
+                        />
+                        <input 
+                            type="number" placeholder="Watt" 
+                            value={newPower}
+                            onChange={e => setNewPower(e.target.value)}
+                            className="w-1/2 bg-gray-900 rounded px-1 py-0.5 text-[10px] text-white outline-none border border-gray-700 focus:border-[#2a9e92]"
+                        />
+                    </div>
+                    <button 
+                        onClick={handleAddPdc}
+                        disabled={!newDuration || !newPower}
+                        className="w-full bg-[#2a9e92] hover:bg-[#218c82] disabled:opacity-50 text-white text-[10px] font-bold rounded py-0.5 transition-colors"
+                    >
+                        + ADD
+                    </button>
+                </div>
             </div>
           </div>
         </div>
