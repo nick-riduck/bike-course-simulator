@@ -70,11 +70,12 @@ const MapViewer = () => {
       // Metadata for Tooltip
       const simStats = simulationResult?.track_data?.[idx] || null;
 
-      wallData.push({
-          polygon: [bl, br, tr, tl], // Bottom-Left -> Bottom-Right -> Top-Left -> Top-Right
-          color,
+      wallData.push({ 
+          polygon: [bl, br, tr, tl],
+          color, 
           segmentId: currentSeg?.id,
-          dist_m: as.end_dist, // For hover sync
+          userSegment: currentSeg, // Link to parent
+          dist_m: as.end_dist, 
           stats: simStats,
           grade: as.avg_grade
       });
@@ -103,9 +104,9 @@ const MapViewer = () => {
 
   const getTooltip = ({object}) => {
     if (!object) return null;
-    const { stats, grade, dist_m } = object;
+    const { stats, grade, dist_m, segmentId } = object;
     
-    let content = `Grade: ${grade?.toFixed(1) || 0}%\nDist: ${(dist_m/1000).toFixed(2)}km`;
+    let content = `Segment: #${segmentId}\nGrade: ${grade?.toFixed(1) || 0}%\nDist: ${(dist_m/1000).toFixed(2)}km`;
     
     if (stats) {
         content += `\n\n-- Simulation --\nPower: ${Math.round(stats.power)}W\nSpeed: ${stats.speed_kmh.toFixed(1)}km/h\nTime: ${Math.floor(stats.time_sec/60)}m ${Math.floor(stats.time_sec%60)}s`;
