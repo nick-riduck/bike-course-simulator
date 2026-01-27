@@ -128,7 +128,6 @@ const useCourseStore = create((set, get) => ({
 
       set({ gpxData: pointsWithGrade, atomicSegments: data.atomic_segments });
       
-      // Use Local Data for logic
       const gpxDataForCalc = pointsWithGrade;
 
       let workSegments = data.atomic_segments.map(as => ({
@@ -158,8 +157,7 @@ const useCourseStore = create((set, get) => ({
                   const prevEnd = workSegments[i-1].end_dist;
                   const stats = calculateGradeAndType(gpxDataForCalc, currentGroupStart, prevEnd);
                   clusteredSegments.push({
-                      id: 0, start_dist: currentGroupStart, end_dist: prevEnd, type: currentType, avg_grade: stats.avg_grade,
-                      target_power: currentType === 'UP' ? get().riderProfile.cp * 1.1 : get().riderProfile.cp * 0.8
+                      id: 0, start_dist: currentGroupStart, end_dist: prevEnd, type: currentType, avg_grade: stats.avg_grade
                   });
                   currentGroupStart = ws.start_dist;
                   currentType = ws.type;
@@ -168,8 +166,7 @@ const useCourseStore = create((set, get) => ({
           const lastEnd = workSegments[workSegments.length - 1].end_dist;
           const stats = calculateGradeAndType(gpxDataForCalc, currentGroupStart, lastEnd);
           clusteredSegments.push({
-              id: 0, start_dist: currentGroupStart, end_dist: lastEnd, type: currentType, avg_grade: stats.avg_grade,
-              target_power: currentType === 'UP' ? get().riderProfile.cp * 1.1 : get().riderProfile.cp * 0.8
+              id: 0, start_dist: currentGroupStart, end_dist: lastEnd, type: currentType, avg_grade: stats.avg_grade
           });
       }
 
@@ -212,12 +209,13 @@ const useCourseStore = create((set, get) => ({
     try {
       const payload = { 
           points: gpxData, 
-          segments: segments.map(s => ({ id: s.id, start_dist: s.start_dist, end_dist: s.end_dist, target_power: s.target_power })), 
+          segments: segments.map(s => ({ id: s.id, start_dist: s.start_dist, end_dist: s.end_dist })), 
           rider: {
               weight_kg: riderProfile.weight_kg,
               cp: riderProfile.cp,
               bike_weight: riderProfile.bike_weight,
-              w_prime: riderProfile.w_prime
+              w_prime: riderProfile.w_prime,
+              pdc: riderProfile.pdc
           }
       };
       const response = await fetch('http://localhost:8123/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -252,8 +250,8 @@ const useCourseStore = create((set, get) => ({
       if (splitDist > seg.start_dist && splitDist < seg.end_dist) {
         const s1 = calculateGradeAndType(gpxData, seg.start_dist, splitDist);
         const s2 = calculateGradeAndType(gpxData, splitDist, seg.end_dist);
-        news.push({ ...seg, end_dist: splitDist, ...s1, target_power: s1.type === "UP" ? riderProfile.cp * 1.1 : riderProfile.cp * 0.8 });
-        news.push({ ...seg, id: Date.now(), start_dist: splitDist, ...s2, target_power: s2.type === "UP" ? riderProfile.cp * 1.1 : riderProfile.cp * 0.8 });
+        news.push({ ...seg, end_dist: splitDist, ...s1 });
+        news.push({ ...seg, id: Date.now(), start_dist: splitDist, ...s2 });
       } else news.push(seg);
     });
     set({ segments: _applySimulationStats(news.sort((a, b) => a.start_dist - b.start_dist)) });
@@ -263,7 +261,7 @@ const useCourseStore = create((set, get) => ({
     const targets = s.segments.filter(x => s.selectedSegmentIds.includes(x.id)).sort((a,b) => a.start_dist - b.start_dist);
     if (targets.length < 2) return s;
     const stats = calculateGradeAndType(s.gpxData, targets[0].start_dist, targets[targets.length-1].end_dist);
-    const merged = { ...targets[0], end_dist: targets[targets.length-1].end_dist, ...stats, target_power: stats.type === "UP" ? s.riderProfile.cp * 1.1 : s.riderProfile.cp * 0.8 };
+    const merged = { ...targets[0], end_dist: targets[targets.length-1].end_dist, ...stats };
     const filtered = s.segments.filter(x => !s.selectedSegmentIds.includes(x.id));
     filtered.push(merged);
     return { segments: s._applySimulationStats(filtered.sort((a,b) => a.start_dist-b.start_dist)), selectedSegmentIds: [] };

@@ -84,41 +84,6 @@ class Rider:
             
         return power <= (limit_power + 5) # 5W margin
 
-    def get_dynamic_max_cap(self, estimated_duration_hours: float) -> float:
-        """
-        Calculate Max Power Cap (as % of FTP/CP) based on estimated ride duration.
-        Linear interpolation based on the design document.
-        """
-        t = estimated_duration_hours
-        
-        # Data points for interpolation: (hours, cap_factor)
-        points = [
-            (1.0, 1.20),
-            (3.0, 1.10),
-            (5.0, 1.25),
-            (8.0, 1.20)
-        ]
-        
-        if t <= points[0][0]: return points[0][1]
-        if t >= points[-1][0]: return points[-1][1]
-        
-        for i in range(len(points) - 1):
-            x1, y1 = points[i]
-            x2, y2 = points[i+1]
-            if x1 <= t <= x2:
-                return y1 + (y2 - y1) * (t - x1) / (x2 - x1)
-                
-        return 1.0
-
-    def get_max_force(self) -> float:
-        """
-        Calculate maximum pedal force (Thrust Limit) based on PDC.
-        Target: 5s Power at Sprint Cadence (110rpm).
-        """
-        p_max = self.get_pdc_power(5)
-        # F = P / (Omega * Radius) = P / (11.52 * 0.34) = P / 3.91
-        return p_max / 3.91
-
     def get_pdc_power(self, duration_sec: float) -> float:
         """
         Returns the maximum sustainable power for a given duration using 
@@ -127,8 +92,10 @@ class Rider:
         if not self.pdc:
             return self.cp * 1.2 # Fallback
             
-        durations = sorted(self.pdc.keys())
-        powers = [self.pdc[d] for d in durations]
+        # Convert keys to int and sort
+        sorted_pdc = sorted([(int(k), float(v)) for k, v in self.pdc.items()])
+        durations = [item[0] for item in sorted_pdc]
+        powers = [item[1] for item in sorted_pdc]
         
         # Boundary cases
         if duration_sec <= durations[0]: return powers[0]

@@ -125,16 +125,16 @@ const SegmentList = () => {
             </div>
             <div className="bg-gray-900 p-2 rounded shadow-inner">
               <div className="text-[10px] text-gray-500 uppercase font-bold">Avg Speed</div>
-              <div className="text-lg font-bold text-purple-400 font-mono">{simulationResult.avg_speed_kmh.toFixed(1)} <span className="text-[10px]">km/h</span></div>
+              <div className="text-lg font-bold text-purple-400 font-mono">{simulationResult.avg_speed_kmh?.toFixed(1)} <span className="text-[10px]">km/h</span></div>
             </div>
             <div className="bg-gray-900 p-2 rounded">
               <div className="text-[10px] text-gray-500 uppercase">Avg Power</div>
-              <div className="text-sm font-bold text-gray-300">{Math.round(simulationResult.avg_power)}W</div>
+              <div className="text-sm font-bold text-gray-300">{Math.round(simulationResult.avg_power || 0)}W</div>
             </div>
             <div className="bg-gray-900 p-2 rounded">
               <div className="text-[10px] text-gray-500 uppercase">NP / Work</div>
               <div className="text-sm font-bold text-gray-300">
-                {Math.round(simulationResult.avg_power * 1.05)}W <span className="text-gray-500">/</span> {Math.round(simulationResult.work_kj)}kJ
+                {Math.round(simulationResult.normalized_power || 0)}W <span className="text-gray-500">/</span> {Math.round(simulationResult.work_kj || 0)}kJ
               </div>
             </div>
           </div>
