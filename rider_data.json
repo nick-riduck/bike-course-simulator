@@ -1,8 +1,8 @@
 {
   "rider_a": {
-    "name": "Rider A (User - 85kg Puncheur)",
-    "note": "본인 데이터. 북악 7분 46초(실측), 설악 8시간 초반 예상. 10분 390W 가능.",
-    "weight_kg": 85,
+    "name": "Rider A (User - 82kg Puncheur)",
+    "note": "본인 데이터. 북악 7분 46초(실측), 설악 8시간 초반 예상. 10분 390W 가능. (체중 감량 85 -> 82kg)",
+    "weight_kg": 82,
     "cp": 281,
     "w_prime": 52000,
     "pdc": {

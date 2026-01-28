@@ -131,7 +131,7 @@ class PhysicsEngine:
         total_time = 0.0
         total_work = 0.0
         weighted_power_sum = 0.0
-        v_current = 20.0 / 3.6 # 롤링 스타트 (20km/h)
+        v_current = 0.1 # Start from near-zero (0.1 m/s) to avoid div-by-zero
         min_w_prime = self.rider.w_prime_max
         track_data = []
 
@@ -144,8 +144,33 @@ class PhysicsEngine:
 
         # 초기 최대 근력 (스프린트 제한용, 약 1.5G)
         f_max_initial = self.rider.weight * 9.81 * 1.5
+        prev_heading = segments[0].heading
 
         for seg in segments:
+            # --- Cornering Speed Limit Logic (Restored from Jan 23) ---
+            heading_change = abs(seg.heading - prev_heading)
+            if heading_change > 180: heading_change = 360 - heading_change
+            
+            # Physics-based Cornering Limit: V = sqrt(mu * g * R)
+            if seg.length > 0 and heading_change > 1.0: # Ignore micro-jitters (< 1 deg)
+                # 1. Calculate Radius (R)
+                theta_rad = math.radians(heading_change)
+                curvature_rad = theta_rad / seg.length
+                
+                if curvature_rad > 0.0001:
+                    radius = 1.0 / curvature_rad
+                    
+                    # 2. Limit Speed
+                    # mu = 0.8 (Tire Grip + Banking), g = 9.81
+                    mu = 0.8
+                    g = 9.81
+                    v_corner_limit = math.sqrt(mu * g * radius)
+                    
+                    v_current = min(v_current, v_corner_limit) 
+            
+            prev_heading = seg.heading
+            # ----------------------------------
+            
             # -----------------------------------------------------
             # [페이싱 전략 적용]
             # 경사도에 따라 목표 파워를 연속적으로 조절합니다.
@@ -319,7 +344,15 @@ class PhysicsEngine:
                 v_air = v_avg + v_wind
                 f_drag = 0.5 * self.params.air_density * eff_cda * (v_air * abs(v_air))
                 
-                f_net = f_pedal - f_drag - f_gravity - f_roll
+                # --- Downhill Braking Logic (Soft Wall @ 80km/h) ---
+                f_brake = 0.0
+                if v_avg > 13.8889: # 50 km/h
+                    v_avg_kmh = v_avg * 3.6
+                    # Deceleration a = 0.22 * (V - 50)^1.2 (km/h per sec)
+                    a_brake_ms2 = (0.22 * ((v_avg_kmh - 50.0) ** 1.2)) / 3.6
+                    f_brake = total_mass * a_brake_ms2
+                
+                f_net = f_pedal - f_drag - f_gravity - f_roll - f_brake
                 
                 # 일-에너지 정리 검증
                 work_net = f_net * d_sub
