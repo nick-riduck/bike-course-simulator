@@ -112,7 +112,10 @@ class PhysicsEngineV2:
         max_pdc_time, max_pdc_watts = sorted_pdc[-1]
         
         if duration_sec > max_pdc_time:
-            riegel_exponent = -0.07 
+            # [Riegel Fatigue Model]
+            # 지수 -0.07은 엘리트 선수급, -0.10은 일반 동호인 수준의 피로 누적을 의미.
+            # 5시간 이상의 초장거리 주행 시 파워 저하를 더 현실적으로 반영하기 위해 -0.10 채택.
+            riegel_exponent = -0.10 
             return max_pdc_watts * (duration_sec / max_pdc_time) ** riegel_exponent
             
         return self.rider.get_pdc_power(duration_sec)
@@ -202,14 +205,11 @@ class PhysicsEngineV2:
         """
         [Dynamic Pacing Function with Tuning Modes]
         """
-        # 1. Grade Factor (Optional legacy support - Disabled for Pure Beta Test)
-        grade_factor = 1.0
-        if grade >= 0:
-            grade_factor = 1.0 + (self.alpha_climb * grade)
-        else:
-            grade_factor = max(0.0, 1.0 + (self.alpha_descent * grade))
-            
-        # 2. Aero Factor (Velocity-based)
+        # Safety: Disable pedaling on steep descents (Coasting)
+        if grade < -0.05:
+            return 0.0
+
+        # Aero Factor (Velocity-based Pacing)
         aero_factor = 1.0
         
         # --- Mode Switching Logic ---
@@ -234,7 +234,6 @@ class PhysicsEngineV2:
             
         elif self.tuning_mode == 'theory':
             # [Pure Theoretical Optimum]
-            # P_target = P_base * (V_ref / V)
             safe_v = max(0.5, current_v)
             aero_factor = self.v_ref / safe_v
             
@@ -245,7 +244,7 @@ class PhysicsEngineV2:
         # Safety: Minimum 10% effort (unless coasting)
         aero_factor = max(0.1, aero_factor) 
         
-        target = p_base * grade_factor * aero_factor
+        target = p_base * aero_factor
         
         if grade >= 0:
             return min(target, max_limit)

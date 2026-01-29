@@ -1,6 +1,7 @@
 import React from 'react'
 import MapViewer from './components/MapViewer'
 import ElevationChart from './components/ElevationChart'
+import PowerSpeedChart from './components/PowerSpeedChart'
 import SegmentList from './components/SegmentList'
 import RiderSettings from './components/RiderSettings'
 import useCourseStore from './stores/useCourseStore'
@@ -36,6 +37,7 @@ function App() {
           <RiderSettings />
           <MapViewer />
           <ElevationChart />
+          <PowerSpeedChart />
         </div>
 
         {/* Right Side: Segment List (1/4 space) */}

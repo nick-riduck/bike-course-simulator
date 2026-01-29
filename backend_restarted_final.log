@@ -1,0 +1,11 @@
+INFO:     Will watch for changes in these directories: ['/Users/nick/nick/bike_course_simulator']
+INFO:     Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [31442] using StatReload
+INFO:     Started server process [31445]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:51176 - "POST /upload_gpx HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51184 - "OPTIONS /simulate HTTP/1.1" 200 OK
+INFO:main:Starting V2 Optimal Pacing Simulation for rider 281.0W CP
+INFO:main:Successfully updated simulation_result.json
+INFO:     127.0.0.1:51184 - "POST /simulate HTTP/1.1" 200 OK

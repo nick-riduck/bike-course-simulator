@@ -5,11 +5,13 @@ Deck.gl을 활용하여 GPX 경로를 3D Curtain Wall 형태로 시각화하고,
 
 ## ✅ To-Do List
 - [x] `MapViewer` 컴포넌트 기본 구현 (Deck.gl + MapLibre)
-- [x] 수직 벽 렌더링 문제 해결 (Epsilon Hack or Triangle Mesh)
-- [ ] Zustand 스토어(`gpxData`)와 `MapViewer` 연동 (더미 데이터 제거)
-- [ ] 구간별 색상 코딩 적용 (업힐: Red, 평지: Green, 다운힐: Blue)
-- [ ] 3D 지형(TerrainLayer) 도입 검토 (Optional)
+- [x] 수직 벽 렌더링 문제 해결 (Epsilon Hack 및 백엔드 Shifted Coordinates 활용)
+- [x] Zustand 스토어(`gpxData`)와 `MapViewer` 연동 (더미 데이터 제거 완료)
+- [x] 구간별 색상 코딩 적용 (업힐: Red, 평지: Green, 다운힐: Blue, 선택: Yellow)
+- [x] 3D 지형(TerrainLayer) 도입 검토 (Optional - 보류)
 
 ## 🏁 Definition of Done (DoD)
-- 업로드된 GPX 파일의 경로가 3D 지도로 렌더링되어야 한다.
-- 마우스 오버 시 해당 구간의 고도 정보가 툴팁으로 표시되어야 한다.
+- [x] 업로드된 GPX 파일의 경로가 3D 지도로 렌더링되어야 한다.
+- [x] 마우스 오버 시 해당 구간의 고도 정보가 툴팁으로 표시되어야 한다.
+
+**Status:** DONE (2026-01-28)

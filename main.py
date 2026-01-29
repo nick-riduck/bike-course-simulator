@@ -10,7 +10,8 @@ import logging
 # Import internal modules
 from src.gpx_loader import GpxLoader, TrackPoint, Segment
 from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams
+# Upgrade to PhysicsEngineV2
+from src.physics_engine_v2 import PhysicsEngineV2 as PhysicsEngine, PhysicsParams
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +55,7 @@ class SimulationRequest(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"status": "Bike Course Simulator API is running"}
+    return {"status": "Bike Course Simulator API (Engine V2) is running"}
 
 @app.post("/upload_gpx")
 async def upload_gpx(file: UploadFile = File(...)):
@@ -69,7 +70,6 @@ async def upload_gpx(file: UploadFile = File(...)):
         loader = GpxLoader(temp_filename)
         loader.load()
         
-        # Generate Atomic Segments (Physics Resolution)
         atomic_segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
         
         os.remove(temp_filename)
@@ -109,11 +109,15 @@ def run_simulation(req: SimulationRequest):
 
     # 1. Setup Rider & Physics
     rider = Rider(weight=req.rider.weight_kg, cp=req.rider.cp, w_prime_max=req.rider.w_prime)
-    # Set PDC data from request
     rider.pdc = {str(k): float(v) for k, v in req.rider.pdc.items()}
     
     physics_params = PhysicsParams(bike_weight=req.rider.bike_weight)
     engine = PhysicsEngine(rider, physics_params)
+    
+    # [ENGINE V2 CONFIG] 
+    # Use Asymmetric Mode as it proved to be the most efficient in sensitivity tests.
+    # slow=0.6 (Climbing), fast=1.5 (Descending)
+    engine.set_tuning(mode='asymmetric', slow=0.6, fast=1.5)
 
     # 2. Convert Points to Internal Format
     loader = GpxLoader("")
@@ -125,8 +129,8 @@ def run_simulation(req: SimulationRequest):
     # 3. Compress points into physical segments
     physics_segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
 
-    # 4. Run Optimal Pacing Solver (Binary Search)
-    logger.info(f"Starting Optimal Pacing Simulation for rider {req.rider.cp}W CP")
+    # 4. Run Optimal Pacing Solver (Binary Search with Adaptive V_ref)
+    logger.info(f"Starting V2 Optimal Pacing Simulation for rider {req.rider.cp}W CP")
     result_obj = engine.find_optimal_pacing(physics_segments)
     
     # 5. Prepare response data

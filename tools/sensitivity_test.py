@@ -1,116 +1,127 @@
 import sys
 import os
+import json
 import math
 
-# 프로젝트 루트를 경로에 추가
+# Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.gpx_loader import GpxLoader
 from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams, SimulationResult
+# Import V2 Engine directly
+from src.physics_engine_v2 import PhysicsEngineV2, PhysicsParams, SimulationResult
+from src.physics_engine_theory import TheoryEngine
 
-# 테스트용 엔진 (f_max_factor를 외부에서 주입받을 수 있게 오버라이딩)
-class SensitivityEngine(PhysicsEngine):
+# Custom Engine Class for Testing
+class SensitivityEngine(PhysicsEngineV2):
     def __init__(self, rider, params):
         super().__init__(rider, params)
-        self.test_f_max_factor = 1.5
+        # Default Settings
+        self.alpha_climb = 0.0
+        self.alpha_descent = 10.0
+        self.beta_aero = 1.0
 
-    def set_f_max_factor(self, factor):
-        self.test_f_max_factor = factor
-
-    def simulate_course(self, segments, p_base, max_power_limit):
-        self.rider.reset_state()
-        total_time = 0.0
-        total_work = 0.0
-        weighted_power_sum = 0.0
-        v_current = 20.0 / 3.6 
-        
-        f_max_initial = self.rider.weight * 9.81 * self.test_f_max_factor
-
-        for seg in segments:
-            p_target = self._calculate_target_power(p_base, seg.grade, max_power_limit)
-            decay_factor = (3600.0 / max(3600.0, total_time)) ** 0.05
-            current_f_limit = f_max_initial * decay_factor
+def load_real_rider(rider_key='rider_a'):
+    """Load Rider Data from JSON"""
+    try:
+        with open('rider_data.json', 'r') as f:
+            data = json.load(f)
+            r_data = data[rider_key]
             
-            # Unpack 3 values (v_next, time_sec, is_walking)
-            v_next, time_sec, is_walking = self._solve_segment_physics(seg, p_target, v_current, 0.0, f_limit=current_f_limit)
+            # Convert keys to int for PDC
+            pdc = {int(k): float(v) for k, v in r_data['pdc'].items()}
             
-            if is_walking:
-                p_actual = 30.0
-            else:
-                v_avg = (v_current + v_next) / 2
-                if v_avg < 0.1: v_avg = 0.1
-                
-                p_avail_required = p_target * (1 - self.params.drivetrain_loss)
-                f_required = p_avail_required / v_avg
-                f_actual_wheel = min(f_required, current_f_limit)
-                p_actual = (f_actual_wheel * v_avg) / (1 - self.params.drivetrain_loss)
-            
-            self.rider.update_w_prime(p_actual, time_sec)
-            if self.rider.is_bonked():
-                return SimulationResult(total_time, p_base, 0, 0, 0, 0, -1, False, "BONK")
-            
-            total_time += time_sec
-            total_work += p_actual * time_sec
-            weighted_power_sum += (p_actual ** 4) * time_sec
-            v_current = v_next 
-            
-        avg_spd = (sum(s.length for s in segments) / 1000.0 * 3600) / total_time
-        avg_p = total_work / total_time
-        np = math.pow(weighted_power_sum / total_time, 0.25)
-        
-        return SimulationResult(total_time, p_base, avg_spd, avg_p, np, total_work/1000, 0, True)
+            rider = Rider(
+                weight=r_data['weight_kg'],
+                cp=r_data['cp'],
+                w_prime_max=r_data['w_prime']
+            )
+            rider.pdc = pdc
+            return rider
+    except Exception as e:
+        print(f"Error loading rider data: {e}")
+        return None
 
 def print_results(results):
-    print(f"{ 'F_Factor':<10} | { 'Time (min)':<12} | { 'Avg Spd':<10} | { 'NP (W)':<10} | { 'Real Avg P':<10}")
-    print("-" * 70)
+    header = f"{ 'Mode':<12} | { 'Time':<10} | { 'Base':<4} | { 'NP':<4} | { 'Limit':<5} | { 'MinWp':<6} | { 'MaxP':<5} | { 'P99':<4} | { 'P50':<4} | { 'Status':<4}"
+    print("-" * 105)
+    print(header)
+    print("-" * 105)
     for r in results:
-        print(f"{r['F_Factor']:<10} | {r['Time (min)']:<12} | {r['Avg Spd']:<10} | {r['NP (W)']:<10} | {r['Real Avg P']:<10}")
+        status = "OK" if r['Status'] else "FAIL"
+        print(f"{r['Mode']:<12} | {r['Time']:<10} | {r['Base']:<4.0f} | {r['NP']:<4.0f} | {r['Limit']:<5.0f} | {r['MinWp']:<6.0f} | {r['Max P']:<5.0f} | {r['P99']:<4.0f} | {r['P50']:<4.0f} | {status:<4}")
 
-def run_test(gpx_path, course_name):
-    print(f"\n>>> Course: {course_name} ({gpx_path})")
+def format_time(seconds):
+    if isinstance(seconds, str): return seconds
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    if h > 0: return f"{h}h {m}m"
+    return f"{m}m {s}s"
+
+def run_test(gpx_path, course_name, rider_key='rider_a'):
+    print(f"\n=========================================================================================================")
+    print(f" >>> Course: {course_name}")
+    print(f" >>> Rider: {rider_key} (Real Data)")
+    print(f"=========================================================================================================")
+    
     loader = GpxLoader(gpx_path)
     loader.load()
     segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
     
-    # Rider Setup (Dummy for Short courses, overridden for Seorak)
-    rider = Rider(weight=75, cp=280, w_prime_max=20000)
-    rider.pdc = {5: 1000, 60: 500, 300: 400, 1200: 320, 3600: 280}
-    
-    # Seorak Override
-    if "seorak" in gpx_path:
-        rider = Rider(weight=85, cp=281, w_prime_max=52000)
-        rider.pdc = {5: 978, 15: 836, 30: 658, 60: 519, 120: 461, 180: 442, 300: 424, 480: 390, 600: 370, 1200: 314, 3600: 296}
+    rider = load_real_rider(rider_key)
+    if not rider: return
 
-    params = PhysicsParams(bike_weight=8.5)
-    engine = SensitivityEngine(rider, params)
+    params = PhysicsParams(bike_weight=8.5, cda=0.30, crr=0.0045, drivetrain_loss=0.05, air_density=1.225, drafting_factor=0.0)
     
     results = []
-    factors = [1.0, 1.2, 1.5, 2.0]
     
-    for f in factors:
-        engine.set_f_max_factor(f)
+    # Test Cases: Verify Physics V2 Tuning
+    cases = [
+        {"mode": "linear", "beta": 1.0, "args": {}, "engine_cls": SensitivityEngine},
+        {"mode": "asymmetric", "beta": 1.0, "args": {"slow": 0.6, "fast": 1.5}, "engine_cls": SensitivityEngine}, # Recommended
+        {"mode": "logarithmic", "beta": 0.6, "args": {}, "engine_cls": SensitivityEngine},
+        {"mode": "theory_old", "beta": 1.0, "args": {}, "engine_cls": SensitivityEngine}, # Pure Inverse (V2)
+        {"mode": "REAL_THEORY", "beta": 1.0, "args": {}, "engine_cls": TheoryEngine}, # New Engine
+    ]
+    
+    for c in cases:
+        # Instantiate Engine
+        engine_class = c["engine_cls"]
+        engine = engine_class(rider, params)
+        
+        engine.beta_aero = c["beta"]
+        engine.set_tuning(c["mode"].replace("_old", "").replace("REAL_", ""), **c["args"]) # Strip prefix for internal mode check
+        
         # Use Solver
         res_obj = engine.find_optimal_pacing(segments)
         
-        if res_obj.is_success:
-            results.append({
-                "F_Factor": f,
-                "Time (min)": round(res_obj.total_time_sec/60, 2),
-                "Avg Spd": round(res_obj.average_speed_kmh, 2),
-                "NP (W)": round(res_obj.normalized_power, 1),
-                "Real Avg P": round(res_obj.average_power, 1)
-            })
-        else:
-            results.append({"F_Factor": f, "Time (min)": "BONK", "Avg Spd": "-", "NP (W)": "-", "Real Avg P": "-"})
+        # Get Limit for this duration
+        limit = engine._get_dynamic_pdc_limit(res_obj.total_time_sec)
+        
+        # Power Stats
+        powers = [p['power'] for p in res_obj.track_data] if res_obj.track_data else []
+        powers.sort()
+        n = len(powers)
+        
+        results.append({
+            "Mode": c["mode"],
+            "Time": format_time(res_obj.total_time_sec) if res_obj.is_success else "BONK",
+            "Base": res_obj.base_power,
+            "NP": res_obj.normalized_power,
+            "Limit": limit,
+            "MinWp": res_obj.w_prime_min,
+            "Max P": powers[-1] if powers else 0,
+            "P99": powers[int(n*0.99)] if n > 0 else 0,
+            "P50": powers[int(n*0.50)] if n > 0 else 0,
+            "Status": res_obj.is_success
+        })
             
     print_results(results)
 
 if __name__ == "__main__":
-    run_test("북악공인구간.gpx", "Bukak Climb")
-    bunwonri = "분원리뺑.gpx"
-    run_test(bunwonri, "Bunwonri Rolling")
+    # 1. Bukak (Short Uphill)
+    run_test("북악공인구간.gpx", "Bukak Climb (2.5km)")
     
-    print(f"\n>>> Course: Seorak Granfondo (20seorak.gpx) [Rider A: 85kg, CP 281]")
-    # Run Seorak logic inside run_test to reuse code
-    run_test("20seorak.gpx", "Seorak Granfondo")
+    # 2. Seorak (Long Granfondo)
+    run_test("20seorak.gpx", "Seorak Granfondo (200km)")

@@ -1,0 +1,3 @@
+
+# Ignore internal debug txt files
+src/*.txt
