@@ -1,0 +1,127 @@
+wrong_engine.txt를 수정하여 **Dahmen의 최적 제어 알고리즘(Optimal Control Algorithm)**을 적용하려면, 기존의 '휴리스틱(직관적 규칙) 방식'을 완전히 제거하고 '수학적 미분(Gradient Descent) 방식'으로 대체해야 합니다.
+소스 코드의 구체적인 수정 단계와 코드를 안내해 드립니다.
+
+--------------------------------------------------------------------------------
+1. 수정해야 할 핵심 개념 (What to Change)
+wrong_engine.txt는 현재 **규칙 기반(Rule-based)**입니다.
+• 현재 문제점: alpha_climb, alpha_descent 같은 임의의 변수를 사용하여 "오르막이면 파워를 1.5배 해라"라고 사람이 정해준 규칙을 따릅니다.
+• Dahmen 알고리즘의 목표: 규칙을 지우고, 비용 함수(시간)를 최소화하는 수학적 해를 찾습니다. 즉, "여기서 1W를 더 쓰면 시간이 얼마나 단축되는가(dt/dP)?"를 계산하여 컴퓨터가 스스로 파워를 배분하게 합니다,.
+
+--------------------------------------------------------------------------------
+2. 코드 수정 가이드 (Step-by-Step)
+단계 1: PhysicsParams 및 __init__에서 휴리스틱 변수 제거
+사람이 정한 가중치(alpha)를 삭제합니다.
+[수정 전]
+# wrong_engine.txt [4]
+self.alpha_climb = 2.5 
+self.alpha_descent = 10.0 
+[수정 후]
+# 해당 변수 삭제 (필요 없음)
+pass 
+단계 2: simulate_course 함수 수정
+기존 함수는 p_base 하나만 받아서 내부에서 규칙을 적용했습니다. 수정된 함수는 최적화된 파워 배열(power_profile)을 입력받아 그대로 실행해야 합니다.
+[수정 코드]
+# simulate_course 함수의 시그니처와 내부 로직 변경
+def simulate_course(self, segments: List[Segment], power_profile: List[float]) -> SimulationResult:
+    """
+    Dahmen 알고리즘용 시뮬레이터:
+    규칙(Alpha)을 쓰지 않고, 외부에서 최적화된 power_profile을 받아 물리 연산만 수행합니다.
+    """
+    self.rider.reset_state()
+    total_time = 0.0
+    total_work = 0.0
+    v_current = 0.1
+    min_w_prime = self.rider.w_prime_max
+    track_data = []
+
+    # [중요] power_profile은 각 세그먼트 별 할당된 파워 리스트
+    for i, seg in enumerate(segments):
+        p_target = power_profile[i] # 규칙 계산 대신, 할당된 파워 사용
+        
+        # ... (이하 물리 엔진 로직은 wrong_engine.txt의 _solve_segment_physics 유지) ...
+        # [5]~[6] 내용 활용
+        
+        # 환경 변수(바람 등) 설정
+        v_headwind_env = 0.0 # (단순화를 위해 생략, 실제로는 weather 적용)
+        
+        # 물리 연산 실행 (Martin Model)
+        v_next, time_sec, is_walking, _ = self._solve_segment_physics(seg, p_target, v_current, v_headwind_env, 1000.0)
+        
+        # ... (결과 집계 로직 유지) ...
+        total_time += time_sec
+        v_current = v_next
+        
+    return SimulationResult(total_time, 0, 0, 0, 0, 0, 0, True, track_data=track_data)
+단계 3: find_optimal_pacing 대체 -> solve_dahmen_optimizer 구현
+이것이 핵심입니다. 이분 탐색(Binary Search) 대신 **경사 하강법(Gradient Descent)**을 구현합니다.
+[신규 추가 코드]
+def solve_dahmen_optimizer(self, segments: List[Segment], total_energy_budget: float, max_power_limit: float) -> List[float]:
+    """
+    [Dahmen Optimal Control Solver]
+    목표: 총 에너지(Joule) 한도 내에서 '최소 시간'을 만드는 파워 배분을 찾음.
+    원리: 모든 구간의 '시간 단축 효율(Gradient)'이 균등해질 때까지 파워를 재분배.
+    """
+    # 1. 초기화: 평지 기준 등파워 배분 (Flat Pacing)
+    avg_power = 250.0 # 초기 추정치
+    powers = [avg_power] * len(segments)
+    
+    learning_rate = 500.0 # 학습률 (수렴 속도)
+    iterations = 30       # 반복 횟수
+    
+    for k in range(iterations):
+        gradients = [] # 각 구간별 dt/dP (1W당 시간 단축량)
+        current_total_energy = 0.0
+        
+        # 2. 기울기(Gradient) 계산 루프
+        # "이 구간에서 1W 더 쓰면 몇 초 줄어드나?"
+        v_curr = 0.1
+        for i, seg in enumerate(segments):
+            p = powers[i]
+            
+            # 현재 파워일 때 시간 (T_base)
+            v_next_base, t_base, _, _ = self._solve_segment_physics(seg, p, v_curr, 0, 1000)
+            
+            # 미세 파워 증가 시 시간 (T_delta) -> 수치 미분
+            delta = 0.5 # 0.5W 변화
+            v_next_delta, t_delta, _, _ = self._solve_segment_physics(seg, p + delta, v_curr, 0, 1000)
+            
+            # 기울기 (음수 값: 시간이 줄어드니까)
+            grad = (t_delta - t_base) / delta
+            gradients.append(grad)
+            
+            current_total_energy += p * t_base
+            v_curr = v_next_base # 다음 구간 진입 속도 갱신
+
+        # 3. 파워 업데이트 (Greedy Update)
+        avg_grad = sum(gradients) / len(gradients)
+        
+        for i in range(len(powers)):
+            # 평균보다 효율이 좋은(grad가 더 작은 음수) 구간에 파워 추가
+            # 효율이 나쁜(grad가 0에 가까운) 구간에서 파워 회수
+            diff = gradients[i] - avg_grad
+            change = -diff * learning_rate 
+            
+            powers[i] += change
+            
+            # 4. 생리학적 제약조건 (Dahmen Physiological Constraint)
+            # 0 <= Power <= P_max
+            powers[i] = max(0.0, min(powers[i], max_power_limit))
+            
+        # 5. 총 에너지 예산 맞추기 (Normalization)
+        # 최적화 과정에서 총 에너지가 틀어지면 다시 스케일링
+        scale = total_energy_budget / current_total_energy
+        powers = [p * scale for p in powers]
+        
+    return powers
+
+--------------------------------------------------------------------------------
+3. 변경 사항의 근거 및 효과
+1. 자의적 판단 제거 (alpha 삭제)
+    ◦ wrong_engine: "오르막 가중치 2.5"라는 근거 없는 값 사용.
+    ◦ Dahmen: 코드가 스스로 grad(기울기)를 계산합니다. 오르막은 속도가 느려서 1W 추가 시 시간 단축 효과(grad)가 매우 큽니다. 따라서 알고리즘이 자동으로 오르막에 파워를 몰아줍니다.
+2. 물리 엔진 재사용 (_solve_segment_physics)
+    ◦ pyfun.txt의 물리 엔진은 일-에너지 정리와 Martin의 공식(공기저항, 구름저항)을 이미 잘 구현하고 있습니다. Dahmen 알고리즘은 이 물리 엔진을 '미분(Gradient calculation)'하는 도구로 사용하여 최적해를 찾습니다.
+3. 제약 조건 (max_power_limit)
+    ◦ Dahmen은 최적화 시 **"생리학적 모델(ϕ)"**이 최대 파워를 제한해야 한다고 명시했습니다. 수정된 코드의 max(0, min(p, max_power_limit)) 부분이 이를 수행합니다.
+요약
+wrong_engine.txt에서 _calculate_target_power 함수(휴리스틱 로직)를 삭제하고, 그 자리에 위에서 작성해 드린 **solve_dahmen_optimizer (미분 기반 파워 배분)**를 넣으시면 됩니다. 물리 엔진(_solve_segment_physics)은 그대로 두시면 됩니다.

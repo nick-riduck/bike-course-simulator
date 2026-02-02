@@ -11,9 +11,6 @@ from src.physics_engine_v2 import PhysicsParams, SimulationResult, PhysicsEngine
 
 class GordonTheoryEngine(PhysicsEngineV2):
     """
-    [Pure Optimal Control Theory Implementation]
-    Based on Gordon (2005), "Optimizing Pacing Strategy in Cycling Time-Trials".
-    
     Strict Implementation Rules:
     1. P_max is FIXED (Physiological Constraint, typically CP or MAP).
     2. Optimization Variable is V_crit (Critical Velocity).

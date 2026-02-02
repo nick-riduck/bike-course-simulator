@@ -1,3 +1,7 @@
 
 # Ignore internal debug txt files
 src/*.txt
+*.log
+*.pyc
+comparison_output.txt
+*.csv
