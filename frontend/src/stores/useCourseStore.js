@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { XMLParser } from 'fast-xml-parser';
-import riderData from '../../../rider_data.json'; 
+import riderData from '../../../data/config/rider_data.json'; 
 
 // --- Helper Functions (Pure Logic) ---
 const calculateGradeAndType = (gpxData, startDist, endDist) => {
