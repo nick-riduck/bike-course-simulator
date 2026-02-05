@@ -25,6 +25,7 @@ class Segment:
     heading: float
     start_ele: float
     end_ele: float
+    crr: float = 0.0045
     lat: float = 0.0
     lon: float = 0.0
     start_lat: float = 0.0
@@ -40,6 +41,52 @@ class GpxLoader:
         self.gpx_path = gpx_path
         self.points: List[TrackPoint] = []
         self.segments: List[Segment] = []
+
+    def load_from_json_data(self, data: List[dict]):
+        """Load segments directly from a list of dictionaries (Simulation Result format)."""
+        self.segments = []
+        if not data:
+            return
+
+        prev_dist = 0.0
+        prev_ele = data[0]['ele']
+        
+        start_k = 0
+        if data[0].get('dist_km', 0) == 0:
+             prev_ele = data[0]['ele']
+             start_k = 1
+
+        for i in range(start_k, len(data)):
+            d = data[i]
+            dist_km = d['dist_km']
+            curr_dist = dist_km * 1000.0
+            length = curr_dist - prev_dist
+            
+            if length <= 0: continue
+                
+            grade = d.get('grade_pct', 0.0) / 100.0
+            curr_ele = d['ele']
+            heading = d.get('heading', 0.0)
+            lat = d.get('lat', 0.0)
+            lon = d.get('lon', 0.0)
+            
+            seg = Segment(
+                index=len(self.segments),
+                start_dist=prev_dist,
+                end_dist=curr_dist,
+                length=length,
+                grade=grade,
+                heading=heading,
+                start_ele=prev_ele,
+                end_ele=curr_ele,
+                lat=lat,
+                lon=lon,
+                start_lat=data[i-1].get('lat', lat) if i > 0 else lat,
+                start_lon=data[i-1].get('lon', lon) if i > 0 else lon
+            )
+            self.segments.append(seg)
+            prev_dist = curr_dist
+            prev_ele = curr_ele
 
     def load(self):
         tree = ET.parse(self.gpx_path)
@@ -62,27 +109,37 @@ class GpxLoader:
 
             if prev_pt:
                 d = self._haversine_distance(prev_pt, current_pt)
-                if d < 2.0: continue # Filter noise
+                if d < 0.5: continue # Reduced from 2.0 to provide more points for Valhalla
                 total_dist += d
             
             current_pt.distance_from_start = total_dist
             self.points.append(current_pt)
             prev_pt = current_pt
             
-        # Calculate Shifted Path immediately after loading
         self._calculate_shifted_path(offset_meters=15.0)
+
+    def smooth_elevation(self, window_size: int = 10):
+        """Apply Moving Average smoothing to elevation."""
+        if not self.points: return
+        elevations = [p.ele for p in self.points]
+        smoothed = []
+        for i in range(len(elevations)):
+            start = max(0, i - window_size // 2)
+            end = min(len(elevations), i + window_size // 2 + 1)
+            window = elevations[start:end]
+            smoothed.append(sum(window) / len(window))
+        for i, p in enumerate(self.points):
+            p.ele = smoothed[i]
 
     def _calculate_shifted_path(self, offset_meters: float):
         if len(self.points) < 2: return
 
-        # Helper: Calculate bearing
         def get_bearing(lat1, lon1, lat2, lon2):
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
             y = math.sin(lon2 - lon1) * math.cos(lat2)
             x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
             return (math.degrees(math.atan2(y, x)) + 360) % 360
 
-        # Helper: Shift point
         def shift(lat, lon, bearing, dist):
             R = 6378137
             lat, lon, bearing = map(math.radians, [lat, lon, bearing])
@@ -93,7 +150,6 @@ class GpxLoader:
         for i in range(len(self.points)):
             curr = self.points[i]
             bearing = 0.0
-            
             if i == 0:
                 next_pt = self.points[i+1]
                 bearing = get_bearing(curr.lat, curr.lon, next_pt.lat, next_pt.lon) + 90
@@ -105,24 +161,19 @@ class GpxLoader:
                 next_pt = self.points[i+1]
                 b1 = get_bearing(prev_pt.lat, prev_pt.lon, curr.lat, curr.lon)
                 b2 = get_bearing(curr.lat, curr.lon, next_pt.lat, next_pt.lon)
-                
-                # Angle Bisector logic
                 avg_bearing = (b1 + b2) / 2
                 if abs(b1 - b2) > 180: avg_bearing += 180
                 bearing = avg_bearing + 90
-
             shifted_lat, shifted_lon = shift(curr.lat, curr.lon, bearing, offset_meters)
             curr.shifted_lat = shifted_lat
             curr.shifted_lon = shifted_lon
 
     def compress_segments(self, grade_threshold: float = 0.005, heading_threshold: float = 15.0, max_length: float = 1000.0) -> List[Segment]:
         if not self.points: return []
-
         segments = []
         start_idx = 0
         ref_grade = 0.0
         ref_heading = 0.0
-
         if len(self.points) > 1:
             ref_grade = self._calculate_grade(self.points[0], self.points[1])
             ref_heading = self._calculate_bearing(self.points[0], self.points[1])
@@ -130,21 +181,16 @@ class GpxLoader:
         for i in range(1, len(self.points)):
             curr_pt = self.points[i]
             start_pt = self.points[start_idx]
-            
             dist = curr_pt.distance_from_start - start_pt.distance_from_start
             if dist == 0: continue
-
             curr_grade = (curr_pt.ele - start_pt.ele) / dist
             curr_heading = self._calculate_bearing(start_pt, curr_pt)
-            
             if curr_grade > 0.25: curr_grade = 0.25
             if curr_grade < -0.25: curr_grade = -0.25
-
             is_grade_change = abs(curr_grade - ref_grade) > grade_threshold
             is_heading_change = abs(curr_heading - ref_heading) > heading_threshold
             is_too_long = dist > max_length
             is_last_point = (i == len(self.points) - 1)
-
             if (is_grade_change or is_heading_change or is_too_long) and dist > 10:
                 seg = Segment(
                     index=len(segments),
@@ -159,20 +205,17 @@ class GpxLoader:
                     lon=curr_pt.lon,
                     start_lat=start_pt.lat,
                     start_lon=start_pt.lon,
-                    # Populate Shifted Coordinates from points
                     shifted_start_lat=start_pt.shifted_lat,
                     shifted_start_lon=start_pt.shifted_lon,
                     shifted_end_lat=curr_pt.shifted_lat,
                     shifted_end_lon=curr_pt.shifted_lon
                 )
                 segments.append(seg)
-                
                 start_idx = i
                 ref_grade = 0.0
                 if i < len(self.points) - 1:
                     ref_grade = self._calculate_grade(self.points[i], self.points[i+1])
                     ref_heading = self._calculate_bearing(self.points[i], self.points[i+1])
-            
             elif is_last_point:
                 seg = Segment(
                     index=len(segments),
@@ -193,7 +236,6 @@ class GpxLoader:
                     shifted_end_lon=curr_pt.shifted_lon
                 )
                 segments.append(seg)
-
         self.segments = segments
         return segments
 
