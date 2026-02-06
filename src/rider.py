@@ -111,3 +111,9 @@ class Rider:
                 return p1 + (p2 - p1) * (duration_sec - t1) / (t2 - t1)
                 
         return self.cp
+
+    def get_max_force(self) -> float:
+        """Estimate max leg force (Torque limit) based on weight."""
+        # Approx 1.5G of rider weight
+        return self.weight * 9.81 * 1.5
+
