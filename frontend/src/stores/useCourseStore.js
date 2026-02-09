@@ -26,7 +26,9 @@ const calculateGradeAndType = (gpxData, startDist, endDist) => {
 
 const initialRider = {
     ...riderData.rider_a,
-    bike_weight: 8.5
+    bike_weight: 8.5,
+    cda: 0.32,
+    crr: 0.005
 };
 
 const useCourseStore = create((set, get) => ({
