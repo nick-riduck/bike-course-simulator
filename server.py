@@ -47,6 +47,8 @@ class RiderInput(BaseModel):
     cp: float
     bike_weight: float = 8.5
     w_prime: float = 20000.0 
+    cda: float = 0.32
+    crr: float = 0.005
     pdc: Dict[str, float] = {}
 
 class SimulationRequest(BaseModel):
@@ -113,7 +115,11 @@ def run_simulation(req: SimulationRequest):
     rider = Rider(weight=req.rider.weight_kg, cp=req.rider.cp, w_prime_max=req.rider.w_prime)
     rider.pdc = {str(k): float(v) for k, v in req.rider.pdc.items()}
     
-    physics_params = PhysicsParams(bike_weight=req.rider.bike_weight)
+    physics_params = PhysicsParams(
+        bike_weight=req.rider.bike_weight,
+        cda=req.rider.cda,
+        crr=req.rider.crr
+    )
     engine = PhysicsEngine(rider, physics_params)
     
     # [ENGINE V2 CONFIG] 

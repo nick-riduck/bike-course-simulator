@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DeckGL from '@deck.gl/react';
 import { PolygonLayer, ColumnLayer } from '@deck.gl/layers';
+
 import { Map } from 'react-map-gl/maplibre';
 import useCourseStore from '../stores/useCourseStore';
 import 'maplibre-gl/dist/maplibre-gl.css';
+
 
 const INITIAL_VIEW_STATE = {
   longitude: 126.99,
@@ -55,10 +57,24 @@ const MapViewer = () => {
       const isSelected = selectedSegmentIds.includes(currentSeg?.id);
 
       // Color Logic
-      let color = [165, 214, 167]; 
-      if (isSelected) color = [255, 215, 0]; 
-      else if (currentSeg?.type === 'UP') color = [244, 67, 54]; 
-      else if (currentSeg?.type === 'DOWN') color = [0, 172, 193]; 
+      let baseColor = [165, 214, 167]; 
+      if (isSelected) baseColor = [255, 215, 0]; 
+      else if (currentSeg?.type === 'UP') baseColor = [244, 67, 54]; 
+      else if (currentSeg?.type === 'DOWN') baseColor = [0, 172, 193]; 
+
+      // Fake Shading Logic (Directional Light)
+      const dy = as.shifted_end_lat - as.shifted_start_lat;
+      const dx = as.shifted_end_lon - as.shifted_start_lon;
+      const angle = Math.atan2(dy, dx); // Segment direction
+      const lightAngle = (135 * Math.PI) / 180; // Light from SE
+      
+      // Calculate shading factor (0.6 ~ 1.0)
+      // We take absolute difference to make walls visible from both sides, 
+      // or just use cos for directional shading. 
+      // Using cos(angle - lightAngle) gives -1 to 1.
+      const shade = 0.7 + 0.3 * Math.cos(angle - lightAngle);
+      
+      const color = baseColor.map(c => Math.min(255, Math.floor(c * shade)));
 
       // Build Polygon using Shifted Coordinates from Backend
       // Apply tiny EPSILON to top points to prevent zero-area culling of vertical walls
@@ -91,6 +107,7 @@ const MapViewer = () => {
         extruded: false, // We provide explicit Z coordinates
         getPolygon: d => d.polygon,
         getFillColor: d => [...d.color, 255],
+
         parameters: {
           cull: false, // Draw double-sided
           depthTest: true
@@ -124,6 +141,7 @@ const MapViewer = () => {
       <DeckGL
         viewState={viewState}
         onViewStateChange={({viewState}) => setViewState(viewState)}
+
         controller={{
           dragRotate: true,
           scrollZoom: true,

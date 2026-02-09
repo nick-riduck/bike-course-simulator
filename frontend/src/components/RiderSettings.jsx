@@ -30,6 +30,72 @@ const RiderSettings = () => {
       }
   };
 
+  const handleRiduckSync = () => {
+    const rawData = prompt("Paste your Riduck localStorage data here:");
+    if (!rawData) return;
+
+    try {
+      const storage = JSON.parse(rawData);
+      
+      // 1. Parse extraInfo (Base Profile & PDC)
+      const extraInfoRaw = storage.extraInfo;
+      if (!extraInfoRaw) {
+          alert("Could not find 'extraInfo' in the pasted data.");
+          return;
+      }
+      const info = JSON.parse(extraInfoRaw);
+      const athlete = info.athlete_json ? JSON.parse(info.athlete_json) : {};
+      const pdcData = info.pdc_json ? JSON.parse(info.pdc_json) : {};
+
+      // 2. Parse dashboardInfo (Metabolism & Latest Weight)
+      let metabolism = null;
+      let dashboardWeight = null;
+      if (storage.dashboardInfo) {
+          const dash = JSON.parse(storage.dashboardInfo);
+          dashboardWeight = dash.weight; // Latest weight from dashboard (80kg)
+          if (dash.metabolismArray) {
+              metabolism = {
+                  fat_arr: dash.metabolismArray.fat_arr,
+                  glyc_arr: dash.metabolismArray.glyc_arr,
+                  all_arr: dash.metabolismArray.all_arr,
+                  fatmax: dash.metabolismArray.fatmax,
+                  at: dash.metabolismArray.at
+              };
+          }
+      }
+      
+      const bikeKit = info.bikeKit_json ? JSON.parse(info.bikeKit_json) : {};
+      
+      // Fallback: Dashboard (80) > ExtraInfo Root (80) > Athlete (83)
+      const finalWeight = dashboardWeight || info.weight || athlete.weight || riderProfile.weight_kg;
+
+      const newProfile = {
+          name: `${athlete.firstname || ''} ${athlete.lastname || ''} (Riduck Sync)`,
+          weight_kg: parseFloat(finalWeight),
+          cp: parseInt(info.cp) || riderProfile.cp,
+          w_prime: parseInt(info.w_prime) || riderProfile.w_prime,
+          pdc: pdcData.power_all || pdcData.power || riderProfile.pdc,
+          bike_weight: bikeKit.bike_weight || riderProfile.bike_weight,
+          cda: bikeKit.cda || riderProfile.cda || 0.32,
+          crr: bikeKit.crr || riderProfile.crr || 0.005,
+          metabolism: metabolism 
+      };
+
+      // Clean up PDC: remove 0 values
+      if (newProfile.pdc) {
+          Object.keys(newProfile.pdc).forEach(k => {
+              if (newProfile.pdc[k] === 0) delete newProfile.pdc[k];
+          });
+      }
+
+      updateRiderProfile(newProfile);
+      alert("Profile synced successfully from Riduck!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to parse data. Check console for details.");
+    }
+  };
+
   // Sort PDC keys for display
   const sortedPdcKeys = Object.keys(riderProfile.pdc || {}).sort((a,b) => parseInt(a) - parseInt(b));
 
@@ -51,15 +117,47 @@ const RiderSettings = () => {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-4 bg-gray-900/50 p-3 rounded border border-gray-800 mb-2">
             <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2">Load Preset From JSON</label>
-            <select 
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-[#2a9e92]"
-                onChange={handlePresetChange}
-                defaultValue="rider_a"
-            >
-                {Object.entries(riderPresets).map(([key, r]) => (
-                    <option key={key} value={key}>{r.name}</option>
-                ))}
-            </select>
+            <div className="flex gap-2">
+                <select 
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-[#2a9e92]"
+                    onChange={handlePresetChange}
+                    defaultValue="rider_a"
+                >
+                    {Object.entries(riderPresets).map(([key, r]) => (
+                        <option key={key} value={key}>{r.name}</option>
+                    ))}
+                </select>
+                <div className="relative group/sync">
+                    <button 
+                        onClick={handleRiduckSync}
+                        className="bg-[#2a9e92]/20 hover:bg-[#2a9e92]/40 border border-[#2a9e92]/50 text-[#2a9e92] px-3 py-1.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 h-full"
+                    >
+                        ⚡ SYNC RIDUCK
+                    </button>
+                    
+                    {/* Tooltip & Helper */}
+                    <div className="absolute top-full right-0 pt-2 w-64 z-50 hidden group-hover/sync:block pointer-events-auto">
+                        <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg shadow-2xl">
+                            <p className="text-[10px] text-gray-300 mb-2 leading-relaxed">
+                                라이덕(riduck.com) 로그인 후, F12를 눌러 콘솔에 아래 명령어를 복사/붙여넣기 하세요. 복사된 내용을 이 버튼을 눌러 입력창에 넣으면 동기화됩니다.
+                            </p>
+                            <div className="bg-black/50 p-2 rounded font-mono text-[9px] text-[#2a9e92] break-all relative group/code">
+                                copy(JSON.stringify(localStorage))
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText('copy(JSON.stringify(localStorage))');
+                                        alert('명령어가 복사되었습니다!');
+                                    }}
+                                    className="absolute top-1 right-1 bg-gray-800 hover:bg-gray-700 px-1 rounded border border-gray-600 text-[8px]"
+                                >
+                                    COPY
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {riderProfile.note && (
                 <p className="text-[10px] text-gray-400 mt-2 italic">Note: {riderProfile.note}</p>
             )}
@@ -100,6 +198,17 @@ const RiderSettings = () => {
               onChange={handleChange}
               className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white focus:border-[#2a9e92] outline-none text-xs"
             />
+          </div>
+
+          <div className="flex items-end gap-2 mb-1">
+            <div className="bg-gray-800/50 rounded px-2 py-1 border border-gray-700/50 flex-1">
+              <span className="block text-[8px] text-gray-500 font-bold uppercase tracking-tighter">CdA (Aero)</span>
+              <span className="text-[10px] font-mono text-[#2a9e92] font-bold">{riderProfile.cda?.toFixed(4) || '0.3200'}</span>
+            </div>
+            <div className="bg-gray-800/50 rounded px-2 py-1 border border-gray-700/50 flex-1">
+              <span className="block text-[8px] text-gray-500 font-bold uppercase tracking-tighter">Crr (Rolling)</span>
+              <span className="text-[10px] font-mono text-[#2a9e92] font-bold">{riderProfile.crr?.toFixed(5) || '0.00500'}</span>
+            </div>
           </div>
           
           <div className="md:col-span-4 mt-2 pt-2 border-t border-gray-800">

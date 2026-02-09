@@ -13,6 +13,8 @@ class PhysicsParams:
     cda: float = 0.30 
     crr: float = 0.0045 
     bike_weight: float = 8.0  
+    # 라이덕 표준: 의류, 헬멧, 슈즈, 물통 등 기본 장비 무게 1kg 추가
+    equipment_weight: float = 1.0  
     drivetrain_loss: float = 0.05 
     air_density: float = 1.225
     drafting_factor: float = 0.0 
@@ -65,7 +67,8 @@ class PhysicsEngineV2:
         low = 0.0
         high = 200.0 / 3.6 
         
-        total_mass = self.rider.weight + self.params.bike_weight
+        # 총 질량 = 라이더 무게 + 바이크 무게 + 장비 무게(1kg)
+        total_mass = self.rider.weight + self.params.bike_weight + self.params.equipment_weight
         eff_cda = self.params.cda
         g = 9.81
         p_avail = power_watts * (1 - self.params.drivetrain_loss)
@@ -255,7 +258,8 @@ class PhysicsEngineV2:
         [Nested Solver Implementation]
         """
         g = 9.81
-        total_mass = self.rider.weight + self.params.bike_weight
+        # 총 질량 = 라이더 무게 + 바이크 무게 + 장비 무게(1kg)
+        total_mass = self.rider.weight + self.params.bike_weight + self.params.equipment_weight
         eff_cda = self.params.cda * (1 - self.params.drafting_factor)
         f_gravity = total_mass * g * seg.grade
         f_roll = total_mass * g * self.params.crr
