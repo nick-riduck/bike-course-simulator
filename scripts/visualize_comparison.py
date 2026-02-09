@@ -7,8 +7,8 @@ import polyline
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.valhalla_client import ValhallaClient
+from src.core.gpx_loader import GpxLoader
+from src.services.valhalla import ValhallaClient
 
 def visualize_comparison(gpx_path):
     # 1. Load Original GPX

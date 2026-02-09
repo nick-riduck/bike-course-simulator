@@ -12,7 +12,7 @@ except ImportError:
     print("Please install it using: pip install matplotlib")
     sys.exit(1)
 
-from src.gpx_loader import GpxLoader
+from src.core.gpx_loader import GpxLoader
 
 def visualize(gpx_path):
     loader = GpxLoader(gpx_path)

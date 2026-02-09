@@ -4,8 +4,8 @@ import math
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
-from src.rider import Rider
-from src.gpx_loader import Segment
+from src.core.rider import Rider
+from src.core.gpx_loader import Segment
 from src.weather_client import WeatherClient
 
 @dataclass

@@ -6,12 +6,15 @@ import math
 import json
 import os
 import logging
+import hashlib
 
 # Import internal modules
-from src.gpx_loader import GpxLoader, TrackPoint, Segment
-from src.rider import Rider
+from src.core.gpx_loader import GpxLoader, TrackPoint, Segment
+from src.services.valhalla import ValhallaClient
+from src.core.rider import Rider
+from src.core.storage import get_storage
 # Upgrade to PhysicsEngineV2
-from src.physics_engine_v2 import PhysicsEngineV2 as PhysicsEngine, PhysicsParams
+from src.engines.v2 import PhysicsEngineV2 as PhysicsEngine, PhysicsParams
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
@@ -61,45 +64,44 @@ def read_root():
 async def upload_gpx(file: UploadFile = File(...)):
     try:
         content = await file.read()
+        
+        # [Caching Strategy] Hash-based Deduplication
+        file_hash = hashlib.sha256(content).hexdigest()
+        storage_filename = f"course_{file_hash}.json"
+        
+        storage = get_storage()
+        
+        # 1. Check Cache
+        if storage.exists(storage_filename):
+            logger.info(f"Cache Hit! Loading {storage_filename} from storage.")
+            return storage.load(storage_filename)
+            
+        logger.info(f"Cache Miss. Processing GPX via Valhalla...")
         gpx_str = content.decode("utf-8")
         
         temp_filename = f"temp_{file.filename}"
         with open(temp_filename, "w") as f:
             f.write(gpx_str)
             
+        # 2. Load Raw GPX
         loader = GpxLoader(temp_filename)
         loader.load()
-        
-        atomic_segments = loader.compress_segments(grade_threshold=0.005, max_length=200.0)
-        
         os.remove(temp_filename)
         
-        return {
-            "points": [
-                {"lat": p.lat, "lon": p.lon, "ele": p.ele, "dist_m": p.distance_from_start}
-                for p in loader.points
-            ],
-            "atomic_segments": [
-                {
-                    "start_dist": s.start_dist,
-                    "end_dist": s.end_dist,
-                    "avg_grade": s.grade * 100, 
-                    "start_ele": s.start_ele,
-                    "end_ele": s.end_ele,
-                    "start_lat": s.start_lat,
-                    "start_lon": s.start_lon,
-                    "end_lat": s.lat,
-                    "end_lon": s.lon,
-                    "shifted_start_lat": s.shifted_start_lat,
-                    "shifted_start_lon": s.shifted_start_lon,
-                    "shifted_end_lat": s.shifted_end_lat,
-                    "shifted_end_lon": s.shifted_end_lon
-                }
-                for s in atomic_segments
-            ]
-        }
+        # 3. Convert to Valhalla Input Format
+        shape_points = [{"lat": p.lat, "lon": p.lon} for p in loader.points] # 'ele' is optional for Valhalla request, it fills it.
+        
+        # 4. Process via ValhallaClient
+        v_client = ValhallaClient()
+        standard_course = v_client.get_standard_course(shape_points)
+        
+        # 5. Save to Storage (Cache)
+        storage.save(standard_course, storage_filename)
+        
+        return standard_course
         
     except Exception as e:
+        logger.error(f"Error processing GPX: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/simulate")

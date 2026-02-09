@@ -6,11 +6,11 @@ import math
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.rider import Rider
+from src.core.gpx_loader import GpxLoader
+from src.core.rider import Rider
 # Import V2 Engine directly
-from src.physics_engine_v2 import PhysicsEngineV2, PhysicsParams, SimulationResult
-from src.physics_engine_theory import TheoryEngine
+from src.engines.v2 import PhysicsEngineV2, PhysicsParams, SimulationResult
+from src.engines.base_theory import TheoryEngine
 
 # Custom Engine Class for Testing
 class SensitivityEngine(PhysicsEngineV2):

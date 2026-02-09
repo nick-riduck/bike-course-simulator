@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+.git
+.gitignore
+.serena
+.DS_Store
+frontend/
+tests/
+scripts/
+data/
+archive/
+docs/
+server_out.log
+nohup.out
+simulation_result.json
+temp_*

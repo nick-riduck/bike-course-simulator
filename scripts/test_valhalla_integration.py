@@ -6,7 +6,7 @@ import httpx
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.valhalla_client import ValhallaClient
+from src.services.valhalla import ValhallaClient
 
 def test_valhalla():
     # 1. Initialize Client

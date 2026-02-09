@@ -2,10 +2,10 @@ from __future__ import annotations
 import math
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
-from src.rider import Rider
-from src.gpx_loader import Segment
+from src.core.rider import Rider
+from src.core.gpx_loader import Segment
 from src.weather_client import WeatherClient
-from src.physics_engine_v2 import PhysicsParams, SimulationResult
+from src.engines.v2 import PhysicsParams, SimulationResult
 
 class PhysicsEngineV5:
     """

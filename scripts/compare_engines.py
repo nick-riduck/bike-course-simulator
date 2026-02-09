@@ -7,15 +7,15 @@ import csv
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.rider import Rider
-from src.gpx_loader import GpxLoader
-from src.physics_engine import PhysicsEngine, PhysicsParams as ParamsV1
-from src.physics_engine_v2 import PhysicsEngineV2, PhysicsParams
-from src.physics_engine_v3 import PhysicsEngineV3
-from src.physics_engine_v3_1 import PhysicsEngineV3_1
-from src.physics_engine_v4 import PhysicsEngineV4
-from src.physics_engine_v5 import PhysicsEngineV5
-from src.physics_engine_gordon import GordonTheoryEngine
+from src.core.rider import Rider
+from src.core.gpx_loader import GpxLoader
+from src.engines.base import PhysicsEngine, PhysicsParams as ParamsV1
+from src.engines.v2 import PhysicsEngineV2, PhysicsParams
+from src.engines.base_v3 import PhysicsEngineV3
+from src.engines.base_v3_1 import PhysicsEngineV3_1
+from src.engines.base_v4 import PhysicsEngineV4
+from src.engines.base_v5 import PhysicsEngineV5
+from src.engines.base_gordon import GordonTheoryEngine
 
 def format_time(seconds):
     h = int(seconds // 3600)

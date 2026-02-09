@@ -4,8 +4,8 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.valhalla_client import ValhallaClient
+from src.core.gpx_loader import GpxLoader
+from src.services.valhalla import ValhallaClient
 
 def inspect_outlier(gpx_path):
     print(f"Inspecting: {gpx_path}")

@@ -7,9 +7,9 @@ import math
 # 프로젝트 루트를 경로에 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams
-from src.gpx_loader import Segment
+from src.core.rider import Rider
+from src.engines.base import PhysicsEngine, PhysicsParams
+from src.core.gpx_loader import Segment
 
 def create_virtual_segment(distance_km, elevation_gain_m):
     """

@@ -1,0 +1,24 @@
+# Use official lightweight Python image
+FROM python:3.12-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the application code
+# We copy the src folder and the server.py entry point
+COPY src/ ./src/
+COPY server.py .
+
+# Expose the port (Cloud Run defaults to 8080)
+ENV PORT=8080
+EXPOSE 8080
+
+# Run the application
+# Use shell form to ensure environment variable expansion
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT}"]

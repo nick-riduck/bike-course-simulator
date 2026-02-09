@@ -6,9 +6,9 @@ import math
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tools.ode_validator import PyfunValidator
-from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams
-from src.gpx_loader import Segment
+from src.core.rider import Rider
+from src.engines.base import PhysicsEngine, PhysicsParams
+from src.core.gpx_loader import Segment
 
 def format_time(seconds):
     h = int(seconds // 3600)

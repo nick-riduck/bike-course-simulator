@@ -1,0 +1,66 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'frontend/firebase.json'
+              - '.github/workflows/deploy-frontend.yml'
+
+  build_and_deploy:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: 'projects/388936157935/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-action-deploy@riduck-bike-course-simulator.iam.gserviceaccount.com'
+          token_format: 'access_token'
+
+      - name: Set Firebase Token
+        run: echo "FIREBASE_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Deploy to Firebase Hosting (Live)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd frontend
+          npx firebase-tools deploy --only hosting:simulator --project riduck-bike-course-simulator --non-interactive
+
+      - name: Deploy to Firebase Hosting (Preview)
+        if: github.event_name == 'pull_request'
+        run: |
+          cd frontend
+          npx firebase-tools hosting:channel:deploy pr-${{ github.event.number }} --only simulator --project riduck-bike-course-simulator --non-interactive

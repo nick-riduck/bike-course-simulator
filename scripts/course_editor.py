@@ -13,7 +13,7 @@ import sys
 # Add project root to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 try:
-    from src.gpx_loader import GpxLoader
+    from src.core.gpx_loader import GpxLoader
 except ImportError:
     st.error("Could not import src.gpx_loader. Please run this tool from the project root or ensure python path is correct.")
     st.stop()

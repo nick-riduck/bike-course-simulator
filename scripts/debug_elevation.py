@@ -6,8 +6,8 @@ import numpy as np
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.valhalla_client import ValhallaClient
+from src.core.gpx_loader import GpxLoader
+from src.services.valhalla import ValhallaClient
 
 def calculate_grade(dist, ele):
     """Calculate grade (%) from distance and elevation arrays."""

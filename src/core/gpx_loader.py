@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 @dataclass
 class TrackPoint:
@@ -41,6 +41,74 @@ class GpxLoader:
         self.gpx_path = gpx_path
         self.points: List[TrackPoint] = []
         self.segments: List[Segment] = []
+
+    def load_from_standard_json(self, data: Dict[str, Any]):
+        """Load from the Standard Course JSON (v1.0) format produced by ValhallaClient."""
+        if not data: return
+
+        # 1. Parse Points
+        pts = data.get("points", {})
+        lats = pts.get("lat", [])
+        lons = pts.get("lon", [])
+        eles = pts.get("ele", [])
+        dists = pts.get("dist", [])
+        
+        count = len(lats)
+        self.points = []
+        
+        for i in range(count):
+            tp = TrackPoint(
+                lat=lats[i],
+                lon=lons[i],
+                ele=eles[i],
+                distance_from_start=dists[i]
+            )
+            self.points.append(tp)
+
+        # 2. Calculate Shifted Path (Visuals)
+        self._calculate_shifted_path(offset_meters=15.0)
+
+        # 3. Parse Segments
+        segs = data.get("segments", {})
+        p_starts = segs.get("p_start", [])
+        p_ends = segs.get("p_end", [])
+        lengths = segs.get("length", [])
+        grades = segs.get("avg_grade", [])
+        headings = segs.get("avg_head", [])
+        # surf_ids = segs.get("surf_id", []) # Use if needed later
+
+        self.segments = []
+        for i in range(len(p_starts)):
+            s_idx = p_starts[i]
+            e_idx = p_ends[i]
+            
+            # Bounds check
+            if s_idx >= count: s_idx = count - 1
+            if e_idx >= count: e_idx = count - 1
+            
+            start_pt = self.points[s_idx]
+            end_pt = self.points[e_idx]
+            
+            seg = Segment(
+                index=i,
+                start_dist=start_pt.distance_from_start,
+                end_dist=end_pt.distance_from_start,
+                length=lengths[i],
+                grade=grades[i],
+                heading=headings[i],
+                start_ele=start_pt.ele,
+                end_ele=end_pt.ele,
+                lat=end_pt.lat,
+                lon=end_pt.lon,
+                start_lat=start_pt.lat,
+                start_lon=start_pt.lon,
+                # Use pre-calculated shifted coords
+                shifted_start_lat=start_pt.shifted_lat,
+                shifted_start_lon=start_pt.shifted_lon,
+                shifted_end_lat=end_pt.shifted_lat,
+                shifted_end_lon=end_pt.shifted_lon
+            )
+            self.segments.append(seg)
 
     def load_from_json_data(self, data: List[dict]):
         """Load segments directly from a list of dictionaries (Simulation Result format)."""

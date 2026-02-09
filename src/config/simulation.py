@@ -54,7 +54,7 @@ class SimulationConfig:
     def to_physics_params(self):
         """기존 PhysicsEngine과의 호환성을 위해 PhysicsParams 객체로 변환"""
         # Note: 여기서 drafting_factor 같은 값은 상황에 따라 주입 필요
-        from src.physics_engine import PhysicsParams
+        from src.engines.base import PhysicsParams
         return PhysicsParams(
             cda=self.physics.cda,
             crr=self.physics.crr,

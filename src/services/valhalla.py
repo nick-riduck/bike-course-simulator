@@ -21,6 +21,8 @@ GRADE_THRESHOLD = float(os.environ.get("SIM_SEGMENT_GRADE_THRESHOLD", 0.005))   
 HEADING_THRESHOLD = float(os.environ.get("SIM_SEGMENT_HEADING_THRESHOLD", 10.0)) # 10.0 deg
 MAX_LENGTH = float(os.environ.get("SIM_SEGMENT_MAX_LENGTH", 200.0))             # 200m
 CHUNK_SIZE = int(os.environ.get("VALHALLA_CHUNK_SIZE", 3000))
+MATCH_THRESHOLD = float(os.environ.get("VALHALLA_MATCH_THRESHOLD", 65.0))
+FALLBACK_MODE = os.environ.get("VALHALLA_FALLBACK_MODE", "true").lower() == "true"
 
 # --- Constants & Mapping ---
 SURFACE_MAP = {
@@ -167,7 +169,7 @@ class ValhallaClient:
     def _get_route_shape(self, start_pt, end_pt) -> List[Tuple[float, float]]:
         payload = {
             "locations": [{"lat": start_pt['lat'], "lon": start_pt['lon']}, {"lat": end_pt['lat'], "lon": end_pt['lon']}],
-            "costing": "auto"
+            "costing": "bicycle"
         }
         with httpx.Client(timeout=10.0) as client:
             resp = client.post(f"{self.url}/route", json=payload)
@@ -193,21 +195,91 @@ class ValhallaClient:
         return upsampled
 
     def _request_raw_data_no_ele(self, shape_points):
+        """
+        스마트 폴백 전략:
+        1. 우선 'bicycle' 모드로 시도 (자전거 최적화)
+        2. 결과 포인트 비율이 70% 미만이면 매칭 실패로 간주하고 'auto' 모드로 재시도 (남산 등 데이터 누락 구간 구제)
+        """
+        
+        # --- 1차 시도: Bicycle (기본값) ---
         trace_payload = {
             "shape": shape_points,
-            "costing": "auto",
+            "costing": "bicycle",
             "shape_match": "map_snap",
-            "trace_options": {"search_radius": 30, "gps_accuracy": 5.0, "turn_penalty_factor": 0}, 
+            "trace_options": {
+                "search_radius": 100,
+                "gps_accuracy": 100.0,
+                "breakage_distance": 500,
+                "turn_penalty_factor": 500
+            }, 
             "filters": {
-                "attributes": ["edge.use", "edge.surface", "edge.begin_shape_index", "edge.end_shape_index", "shape", "matched.point", "matched.edge_index"],
+                "attributes": [
+                    "edge.use", "edge.surface", "edge.begin_shape_index", "edge.end_shape_index", "shape", 
+                    "matched.point", "matched.edge_index", "matched.type", "matched.distance_from_trace_point"
+                ],
                 "action": "include"
             }
         }
+        
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(f"{self.url}/trace_attributes", json=trace_payload)
+                resp.raise_for_status()
+                data = resp.json()
+                raw_shape = polyline.decode(data.get("shape", ""), 6)
+                
+                # --- 실패 감지 로직 (통합 지표: 유효 매칭 비율) ---
+                # matched_points 정보 활용 (각 입력 포인트가 어디에 매칭되었는지 확인)
+                matched_points = data.get("matched_points", [])
+                
+                valid_count = 0
+                total_input = len(shape_points)
+                matched_points = data.get("matched_points", [])
+                # if matched_points:
+                #     print(f"    [Valhalla] DEBUG: First matched point keys: {list(matched_points[0].keys())}")
+                
+                # 유효 포인트 판별 로직
+                for mp in matched_points:
+                    if mp.get("type") == "matched":
+                        # API가 제공하는 distance_from_trace_point 사용 (단위: 미터)
+                        dist = mp.get("distance_from_trace_point", 0.0)
+                        if dist < 100.0: # 100m 이내 오차만 인정
+                            valid_count += 1
+                
+                # 개수 불일치 시 로그 출력
+                # if len(matched_points) != total_input:
+                #     print(f"    [Valhalla] Note: Match count mismatch ({len(matched_points)} vs {total_input})")
+                
+                ratio = (valid_count / total_input) * 100 if total_input > 0 else 0
+                print(f"    [Valhalla] Try 1 (Bicycle): Input {total_input} -> Valid {valid_count} ({ratio:.1f}%)")
+                
+                # --- 검증 및 폴백 판단 ---
+                if not FALLBACK_MODE or ratio >= MATCH_THRESHOLD:
+                    return {
+                        "edges": data.get("edges", []),
+                        "matched_points": matched_points,
+                        "shape_points": raw_shape
+                    }
+                else:
+                    print(f"    [Valhalla] Low valid match ratio ({ratio:.1f}% < {MATCH_THRESHOLD}%). Fallback to 'auto' mode...")
+                    
+        except Exception as e:
+            print(f"    [Valhalla] Try 1 (Bicycle) Failed: {e}. Fallback to 'auto' mode...")
+
+        # --- 2차 시도: Auto (폴백) ---
+        # costing만 auto로 변경하여 재시도
+        trace_payload["costing"] = "auto"
+        # auto 모드에서는 오차 허용을 좀 더 줄여도 됨 (도로는 정확하므로)
+        # 하지만 일관성을 위해 유지하거나, 필요 시 조정 가능. 일단 유지.
+        
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.post(f"{self.url}/trace_attributes", json=trace_payload)
             resp.raise_for_status()
             data = resp.json()
             raw_shape = polyline.decode(data.get("shape", ""), 6)
+            
+            print(f"    [Valhalla] Try 2 (Auto): Input {len(shape_points)} -> Output {len(raw_shape)}")
+            
             return {
                 "edges": data.get("edges", []),
                 "matched_points": data.get("matched_points", []),

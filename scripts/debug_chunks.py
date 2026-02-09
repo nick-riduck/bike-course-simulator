@@ -8,8 +8,8 @@ import httpx
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.valhalla_client import ValhallaClient, VALHALLA_URL
+from src.core.gpx_loader import GpxLoader
+from src.services.valhalla import ValhallaClient, VALHALLA_URL
 
 def debug_chunks(gpx_path):
     print(f"Loading GPX: {gpx_path}")

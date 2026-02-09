@@ -6,10 +6,10 @@ import math
 # 프로젝트 루트를 경로에 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.rider import Rider
-from src.physics_engine_v2 import PhysicsEngineV2, PhysicsParams
-from src.physics_engine_gordon import GordonTheoryEngine
+from src.core.gpx_loader import GpxLoader
+from src.core.rider import Rider
+from src.engines.v2 import PhysicsEngineV2, PhysicsParams
+from src.engines.base_gordon import GordonTheoryEngine
 
 def load_rider():
     with open('rider_data.json', 'r') as f:

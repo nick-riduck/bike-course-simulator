@@ -4,9 +4,9 @@ import math
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
-from src.rider import Rider
-from src.gpx_loader import Segment
-from src.weather_client import WeatherClient
+from src.core.rider import Rider
+from src.core.gpx_loader import Segment
+from src.services.weather import WeatherClient
 
 @dataclass
 class PhysicsParams:

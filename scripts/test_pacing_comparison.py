@@ -5,10 +5,10 @@ import time
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams
-from src.valhalla_client import ValhallaClient
+from src.core.gpx_loader import GpxLoader
+from src.core.rider import Rider
+from src.engines.base import PhysicsEngine, PhysicsParams
+from src.services.valhalla import ValhallaClient
 from cli import _convert_json_to_segments
 
 def run_pacing_test(gpx_path):
@@ -104,5 +104,5 @@ def run_pacing_test(gpx_path):
     print("="*45)
 
 if __name__ == "__main__":
-    gpx = "data/gpx/Seorak_Granfondo-208km.gpx"
+    gpx = "data/gpx/20seorak.gpx"
     run_pacing_test(gpx)

@@ -5,9 +5,9 @@ import math
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.gpx_loader import GpxLoader
-from src.rider import Rider
-from src.physics_engine import PhysicsEngine, PhysicsParams
+from src.core.gpx_loader import GpxLoader
+from src.core.rider import Rider
+from src.engines.base import PhysicsEngine, PhysicsParams
 
 def run_seorak_test():
     gpx_path = "20seorak.gpx"

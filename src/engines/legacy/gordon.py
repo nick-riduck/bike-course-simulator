@@ -4,10 +4,10 @@ import math
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
-from src.rider import Rider
-from src.gpx_loader import Segment
+from src.core.rider import Rider
+from src.core.gpx_loader import Segment
 from src.weather_client import WeatherClient
-from src.physics_engine_v2 import PhysicsParams, SimulationResult, PhysicsEngineV2
+from src.engines.v2 import PhysicsParams, SimulationResult, PhysicsEngineV2
 
 class GordonTheoryEngine(PhysicsEngineV2):
     """

@@ -113,24 +113,96 @@ const useCourseStore = create((set, get) => ({
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8123/upload_gpx', { method: 'POST', body: formData });
+      const response = await fetch('/api/upload_gpx', { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Upload failed');
       const data = await response.json();
 
-      const pointsWithGrade = data.points.map((p, i, arr) => {
-          let grade = 0;
-          if (i > 0) {
-              const d = p.dist_m - arr[i-1].dist_m;
-              if (d > 0) grade = ((p.ele - arr[i-1].ele) / d) * 100;
-          }
-          return { ...p, grade_pct: grade };
-      });
+      // --- ADAPTER: Valhalla Standard JSON (Columnar) -> Frontend Objects (Row-based) ---
+      
+      const getBearing = (lat1, lon1, lat2, lon2) => {
+          const rad = Math.PI / 180;
+          lat1 *= rad; lon1 *= rad; lat2 *= rad; lon2 *= rad;
+          const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+          const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+          return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      };
 
-      set({ gpxData: pointsWithGrade, atomicSegments: data.atomic_segments });
+      const shiftPoint = (lat, lon, bearing, dist) => {
+          const R = 6378137;
+          const rad = Math.PI / 180;
+          const deg = 180 / Math.PI;
+          lat *= rad; lon *= rad; bearing *= rad;
+          const lat2 = Math.asin(Math.sin(lat) * Math.cos(dist / R) + Math.cos(lat) * Math.sin(dist / R) * Math.cos(bearing));
+          const lon2 = lon + Math.atan2(Math.sin(bearing) * Math.sin(dist / R) * Math.cos(lat), Math.cos(dist / R) - Math.sin(lat) * Math.sin(lat2));
+          return [lat2 * deg, lon2 * deg];
+      };
+
+      // 1. Parse Points & Calculate Shifted Visual Coordinates
+      const pts = data.points;
+      const count = pts.lat.length;
+      const pointsWithGrade = [];
+      const offset = 15.0; 
+
+      for(let i=0; i<count; i++) {
+          let bearing = 0;
+          if (i === 0 && count > 1) {
+              bearing = getBearing(pts.lat[i], pts.lon[i], pts.lat[i+1], pts.lon[i+1]) + 90;
+          } else if (i === count - 1 && count > 1) {
+              bearing = getBearing(pts.lat[i-1], pts.lon[i-1], pts.lat[i], pts.lon[i]) + 90;
+          } else if (count > 2) {
+              const b1 = getBearing(pts.lat[i-1], pts.lon[i-1], pts.lat[i], pts.lon[i]);
+              const b2 = getBearing(pts.lat[i], pts.lon[i], pts.lat[i+1], pts.lon[i+1]);
+              let avg = (b1 + b2) / 2;
+              if (Math.abs(b1 - b2) > 180) avg += 180;
+              bearing = avg + 90;
+          }
+          
+          const [slat, slon] = shiftPoint(pts.lat[i], pts.lon[i], bearing, offset);
+
+          pointsWithGrade.push({
+              lat: pts.lat[i],
+              lon: pts.lon[i],
+              ele: pts.ele[i],
+              dist_m: pts.dist[i],
+              grade_pct: pts.grade[i] * 100,
+              shifted_lat: slat,
+              shifted_lon: slon
+          });
+      }
+
+      // 2. Parse Atomic Segments
+      const segs = data.segments;
+      const atomicSegments = [];
+      const segCount = segs.p_start.length;
+      for(let i=0; i<segCount; i++) {
+          const sIdx = segs.p_start[i];
+          const eIdx = segs.p_end[i];
+          
+          if (sIdx >= count || eIdx >= count) continue;
+          
+          atomicSegments.push({
+              start_dist: pts.dist[sIdx],
+              end_dist: pts.dist[eIdx],
+              avg_grade: segs.avg_grade[i] * 100,
+              start_ele: pts.ele[sIdx],
+              end_ele: pts.ele[eIdx],
+              start_lat: pts.lat[sIdx],
+              start_lon: pts.lon[sIdx],
+              end_lat: pts.lat[eIdx],
+              end_lon: pts.lon[eIdx],
+              // Visualization coordinates
+              shifted_start_lat: pointsWithGrade[sIdx].shifted_lat,
+              shifted_start_lon: pointsWithGrade[sIdx].shifted_lon,
+              shifted_end_lat: pointsWithGrade[eIdx].shifted_lat,
+              shifted_end_lon: pointsWithGrade[eIdx].shifted_lon
+          });
+      }
+
+      set({ gpxData: pointsWithGrade, atomicSegments: atomicSegments });
       
       const gpxDataForCalc = pointsWithGrade;
 
-      let workSegments = data.atomic_segments.map(as => ({
+      let workSegments = atomicSegments.map(as => ({
           ...as,
           type: as.avg_grade > 3.5 ? 'UP' : (as.avg_grade < -3.5 ? 'DOWN' : 'FLAT'),
           length: as.end_dist - as.start_dist
@@ -218,7 +290,7 @@ const useCourseStore = create((set, get) => ({
               pdc: riderProfile.pdc
           }
       };
-      const response = await fetch('http://localhost:8123/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const response = await fetch('/api/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await response.json();
       set({ segments: _applySimulationStats(segments, result), simulationResult: result });
     } catch (e) { console.error(e); }
