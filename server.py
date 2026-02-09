@@ -60,7 +60,7 @@ class SimulationRequest(BaseModel):
 def read_root():
     return {"status": "Bike Course Simulator API (Engine V2) is running"}
 
-@app.post("/upload_gpx")
+@app.post("/api/upload_gpx")
 async def upload_gpx(file: UploadFile = File(...)):
     try:
         content = await file.read()
@@ -104,7 +104,7 @@ async def upload_gpx(file: UploadFile = File(...)):
         logger.error(f"Error processing GPX: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/simulate")
+@app.post("/api/simulate")
 def run_simulation(req: SimulationRequest):
     if not req.points:
         raise HTTPException(status_code=400, detail="No GPX points provided")
